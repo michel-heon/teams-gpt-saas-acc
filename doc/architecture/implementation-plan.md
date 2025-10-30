@@ -200,9 +200,9 @@ CREATE TABLE TeamsMessageLogs (
 
 | Plan | Prix mensuel | Messages inclus | Overage |
 |------|-------------|------------------|---------|
-| Starter | 9.99€ | 1,000 | 0.01€ |
-| Professional | 49.99€ | 10,000 | 0.008€ |
-| Enterprise | 199.99€ | 50,000 | 0.005€ |
+| Starter | 9.99&euro; | 1,000 | 0.01&euro; |
+| Professional | 49.99&euro; | 10,000 | 0.008&euro; |
+| Enterprise | 199.99&euro; | 50,000 | 0.005&euro; |
 
 #### 3.3 Configuration technique
 

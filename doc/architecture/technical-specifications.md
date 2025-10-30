@@ -1,10 +1,20 @@
-# Spécifications techniques SaaS Marketplace
+# Spécifications techniques SaaS Marketplace (Approche alternative)
 
-> ⚠️ **Note importante** : Ce document décrit l'approche technique "from scratch". **L'approche recommandée** est l'utilisation du [SaaS Accelerator Microsoft](./saas-accelerator-integration.md) qui permet de réutiliser 80% de l'infrastructure existante.
+> 🚨 **IMPORTANT - DOCUMENT DE RÉFÉRENCE SEULEMENT**
+> 
+> Ce document décrit l'approche technique "from scratch" à des fins de **référence et documentation technique complète**.
+>
+> ✅ **APPROCHE RETENUE POUR CE PROJET** : [SaaS Accelerator Microsoft](./saas-accelerator-integration.md)
+> - Réduction du temps de développement : 6+ mois → 4 semaines  
+> - Réutilisation de 80% de l'infrastructure Microsoft existante
+> - Maintenance et updates automatiques
+> - Certification Marketplace garantie
+>
+> ⚠️ Les spécifications ci-dessous sont conservées pour documentation technique et comparaison des approches.
 
-## Vue d'ensemble technique
+## Vue d'ensemble technique (approche "from scratch")
 
-Ce document détaille les spécifications techniques complètes pour transformer le projet Teams GPT en solution SaaS transactionnelle sur Azure Marketplace avec facturation basée sur le nombre de messages (approche from scratch).
+Ce document détaille les spécifications techniques complètes si le projet était développé entièrement from scratch, sans utiliser le SaaS Accelerator Microsoft.
 
 ## Architecture technique détaillée
 

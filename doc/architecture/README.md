@@ -29,64 +29,63 @@ Guide d'implémentation aligné avec les issues GitHub (#2, #3, #4, #5) en 4 pha
 - **Phase 3** : Configuration Azure Marketplace et Certification (Semaine 3)
 - **Phase 4** : Testing, Validation et Go-Live (Semaine 4)
 
-### ⚡ [Intégration SaaS Accelerator](./saas-accelerator-integration.md) **RECOMMANDÉ**
+### ⚡ [Intégration SaaS Accelerator](./saas-accelerator-integration.md) **APPROCHE RECOMMANDÉE**
 
-Approche pragmatique utilisant le SaaS Accelerator Microsoft :
+**Solution retenue** utilisant le Microsoft Commercial Marketplace SaaS Accelerator :
 
-- Réutilisation de 80% de l'infrastructure existante
-- Intégration minimale avec l'agent Teams GPT
-- Déploiement en 4 semaines au lieu de 12
-- Maintenance et updates automatiques
+- ✅ **Réutilisation de 80% de l'infrastructure** existante Microsoft
+- ✅ **Intégration minimale** avec l'agent Teams GPT existant  
+- ✅ **Déploiement en 4 semaines** au lieu de 6+ mois
+- ✅ **Maintenance automatique** et updates Microsoft
+- ✅ **Certification garantie** car templates Microsoft officiels
 
 ### 🔧 [Spécifications techniques](./technical-specifications.md)
 
-Documentation technique complète (approche from scratch) :
+**Documentation de référence** (approche alternative "from scratch") :
 
-- Composants détaillés avec code source
-- Schéma de base de données complet
-- APIs et services requis
-- Configuration infrastructure Azure
-- Monitoring et télémétrie
-- Sécurité et gestion des secrets
+> ⚠️ **Note** : Ce document décrit l'approche complète "from scratch" à des fins de référence technique. **L'approche SaaS Accelerator est recommandée** pour ce projet.
 
-## Architecture en un coup d'œil
+- Composants détaillés si développés from scratch
+- Schéma de base de données complet 
+- APIs et services custom requis
+- Configuration infrastructure complète
+- Monitoring et télémétrie détaillés
+
+## Architecture avec SaaS Accelerator
 
 ### Composants principaux
 
 ```mermaid
 graph TB
-    A[Teams Client] --> B[Teams Bot Agent]
-    B --> C[Subscription Middleware]
-    C --> D[Usage Tracker]
-    D --> E[Service Bus Queue]
-    E --> F[Usage Reporter Function]
-    F --> G[Marketplace Metering API]
+    A[Teams Client] --> B[Teams GPT Agent]
+    B --> C[SaaS Integration Service] 
+    C --> D[SaaS Accelerator DB]
     
-    H[Customer] --> I[Landing Page]
-    I --> J[Marketplace Fulfillment API]
-    J --> K[Subscription Service]
-    K --> L[SQL Database]
+    E[Customer] --> F[SaaS Accelerator Landing Page]
+    F --> G[Marketplace Fulfillment API]
+    G --> H[SaaS Accelerator Backend]
+    H --> D
     
-    M[Admin Portal] --> L
-    N[Webhook Handler] --> K
+    I[SaaS Accelerator Admin Portal] --> D
+    J[Marketplace Webhooks] --> H
+    K[MeteredTriggerJob] --> L[Marketplace Metering API]
+    D --> K
 ```
 
-### Flux de données clés
+### Architecture hybride : Teams GPT + SaaS Accelerator
 
-1. **Activation d'abonnement** : Customer → Landing Page → Fulfillment API → Subscription Service
-2. **Usage tracking** : Teams Message → Bot Agent → Usage Tracker → Database
-3. **Rapportage** : Service Bus → Usage Reporter → Metering API → Marketplace
-4. **Gestion lifecycle** : Marketplace Webhook → Handler → Subscription Service
+1. **✅ Fourni par SaaS Accelerator** : Landing pages, Admin portals, Webhooks, Facturation automatique
+2. **🔧 À développer** : Service d'intégration Teams GPT avec SaaS Accelerator
+3. **📝 Configuration** : Plans tarifaires, dimensions de mesure, metadata Marketplace
 
-### Facturation basée sur les messages
+### Facturation basée sur les messages (alignée avec les issues GitHub)
 
 #### Dimensions de facturation
 
 - **Messages standards** : 0.01&euro;/message
-- **Messages premium** : 0.02&euro;/message (avec pièces jointes, texte long)
-- **Messages complexes** : Facturation proportionnelle aux tokens utilisés
+- **Messages premium** : 0.02&euro;/message (avec pièces jointes, texte long >1000 caractères)
 
-#### Plans proposés
+#### Plans proposés (conformes aux issues #2, #3, #4, #5)
 
 | Plan | Prix mensuel | Messages inclus | Prix dépassement |
 |------|-------------|------------------|------------------|
@@ -94,25 +93,27 @@ graph TB
 | Professional | 49.99&euro; | 10,000 | 0.008&euro;/message |
 | Enterprise | 199.99&euro; | 50,000 | 0.005&euro;/message |
 
-## Technologies utilisées
+## Technologies utilisées (SaaS Accelerator)
 
-### Backend
-- **Node.js** 20/22 - Runtime principal
-- **Microsoft Teams AI Library** 2.0 - Framework bot
-- **Azure OpenAI** - Traitement IA
-- **SQL Server** - Base de données principale
-- **Service Bus** - Queue pour traitement asynchrone
+### ✅ Infrastructure fournie par SaaS Accelerator
 
-### Azure Services
-- **App Service** - Hébergement applications web
-- **Azure Functions** - Traitement serverless
-- **Key Vault** - Gestion sécurisée des secrets
-- **Application Insights** - Monitoring et télémétrie
-- **Service Bus** - Messaging asynchrone
+- **ASP.NET Core** - CustomerSite, AdminSite, WebHook
+- **SQL Server** - Base de données avec schéma complet
+- **Azure Functions** - MeteredTriggerJob pour facturation automatique
+- **Key Vault** - Gestion automatique des secrets
+- **Application Insights** - Monitoring intégré
 
-### APIs Marketplace
-- **SaaS Fulfillment API** v2 - Gestion des abonnements
-- **Marketplace Metering Service API** - Rapportage d'usage
+### 🔧 Extension Teams GPT requise
+
+- **Node.js** 20/22 - Runtime Teams GPT existant
+- **Microsoft Teams AI Library** 2.0 - Framework bot (inchangé)
+- **Azure OpenAI** - Traitement IA (inchangé)
+- **SaaS Integration Service** - Pont vers SaaS Accelerator
+
+### 🔗 APIs Marketplace (intégrées dans SaaS Accelerator)
+
+- **SaaS Fulfillment API** v2 - Gestion automatique des abonnements
+- **Marketplace Metering API** - Rapportage automatique d'usage
 
 ## Points d'attention
 
@@ -153,6 +154,4 @@ Pour toute question sur cette architecture :
 - **Questions business** : Contacter l'équipe produit
 - **Questions techniques** : Contacter l'équipe dev
 
----
-
-*Cette documentation est maintenue à jour avec l'évolution du projet. Dernière mise à jour : Octobre 2025*
+**Cette documentation est maintenue à jour avec l'évolution du projet. Dernière mise à jour : Octobre 2025**
