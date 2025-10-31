@@ -48,6 +48,14 @@ class SaaSIntegrationService {
             }
         } catch (error) {
             console.error('[SaaSIntegration] Failed to initialize database connection:', error);
+            
+            // En mode permissif, ne pas bloquer l'initialisation
+            if (config.saas.permissiveMode) {
+                console.warn('[SaaSIntegration] Running in permissive mode - continuing without database connection');
+                this.isInitialized = false; // Marquer comme non initialisé
+                return; // Ne pas lancer l'erreur
+            }
+            
             throw error;
         }
     }
@@ -60,6 +68,17 @@ class SaaSIntegrationService {
      */
     async getActiveSubscription(teamsUserId, tenantId = null) {
         await this.initialize();
+
+        // Si pas de connexion DB en mode permissif
+        if (!this.isInitialized || !this.pool) {
+            if (config.saas.permissiveMode) {
+                if (config.saas.debugMode) {
+                    console.log('[SaaSIntegration] No DB connection - returning null (permissive mode)');
+                }
+                return null;
+            }
+            throw new Error('Database connection not initialized');
+        }
 
         try {
             const request = this.pool.request();
@@ -117,6 +136,17 @@ class SaaSIntegrationService {
      */
     async trackMessageUsage(subscription, messageData) {
         await this.initialize();
+
+        // Si pas de connexion DB en mode permissif
+        if (!this.isInitialized || !this.pool) {
+            if (config.saas.permissiveMode) {
+                if (config.saas.debugMode) {
+                    console.log('[SaaSIntegration] No DB connection - skipping usage tracking (permissive mode)');
+                }
+                return; // Ne rien faire en mode permissif
+            }
+            throw new Error('Database connection not initialized');
+        }
 
         try {
             const request = this.pool.request();
@@ -213,6 +243,24 @@ class SaaSIntegrationService {
      */
     async checkMessageLimit(subscriptionId, planId) {
         await this.initialize();
+
+        // Si pas de connexion DB en mode permissif
+        if (!this.isInitialized || !this.pool) {
+            if (config.saas.permissiveMode) {
+                if (config.saas.debugMode) {
+                    console.log('[SaaSIntegration] No DB connection - allowing message (permissive mode)');
+                }
+                // Retourner des limites permissives par défaut
+                return {
+                    allowed: true,
+                    used: 0,
+                    limit: 10000,
+                    remaining: 10000,
+                    resetDate: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString()
+                };
+            }
+            throw new Error('Database connection not initialized');
+        }
 
         try {
             const monthlyLimit = this.getMonthlyLimitForPlan(planId);
