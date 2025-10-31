@@ -14,6 +14,7 @@ const config = {
     dbName: process.env.SAAS_DB_NAME || 'sac-02AMPSaaSDB',
     dbUser: process.env.SAAS_DB_USER,
     dbPassword: process.env.SAAS_DB_PASSWORD,
+    useManagedIdentity: process.env.SAAS_DB_USE_MANAGED_IDENTITY === 'true',
     
     // Metered dimensions (aligned with Partner Center)
     dimensions: {

@@ -24,11 +24,9 @@ class SaaSIntegrationService {
             const dbConfig = {
                 server: config.saas.dbServer,
                 database: config.saas.dbName,
-                user: config.saas.dbUser,
-                password: config.saas.dbPassword,
                 options: {
                     encrypt: true,
-                    trustServerCertificate: false,
+                    trustServerCertificate: true, // Required for Azure SQL with Managed Identity
                     enableArithAbort: true,
                     connectTimeout: 30000,
                     requestTimeout: 30000
@@ -39,6 +37,24 @@ class SaaSIntegrationService {
                     idleTimeoutMillis: 30000
                 }
             };
+
+            // Support for Managed Identity authentication
+            if (config.saas.useManagedIdentity) {
+                // Use Azure AD Managed Identity authentication
+                dbConfig.authentication = {
+                    type: 'azure-active-directory-default'
+                };
+                if (config.saas.debugMode) {
+                    console.log('[SaaSIntegration] Using Azure AD Managed Identity authentication');
+                }
+            } else {
+                // Fallback to SQL authentication
+                dbConfig.user = config.saas.dbUser;
+                dbConfig.password = config.saas.dbPassword;
+                if (config.saas.debugMode) {
+                    console.log('[SaaSIntegration] Using SQL authentication');
+                }
+            }
 
             this.pool = await sql.connect(dbConfig);
             this.isInitialized = true;
@@ -57,6 +73,41 @@ class SaaSIntegrationService {
             }
             
             throw error;
+        }
+    }
+
+    /**
+     * Teste la connexion à la base de données
+     * @returns {Promise<Object>} Résultat du test avec version et statut
+     */
+    async testConnection() {
+        try {
+            await this.initialize();
+
+            if (!this.isInitialized || !this.pool) {
+                return {
+                    success: false,
+                    error: 'Database connection not initialized',
+                    permissiveMode: config.saas.permissiveMode
+                };
+            }
+
+            const result = await this.pool.request().query('SELECT @@VERSION as Version, CURRENT_USER as CurrentUser');
+            
+            return {
+                success: true,
+                version: result.recordset[0].Version,
+                currentUser: result.recordset[0].CurrentUser,
+                server: config.saas.dbServer,
+                database: config.saas.dbName,
+                authMethod: config.saas.useManagedIdentity ? 'Managed Identity' : 'SQL Authentication'
+            };
+        } catch (error) {
+            return {
+                success: false,
+                error: error.message,
+                stack: config.saas.debugMode ? error.stack : undefined
+            };
         }
     }
 
@@ -87,18 +138,21 @@ class SaaSIntegrationService {
             let query = `
                 SELECT 
                     s.Id,
-                    s.AmpSubscriptionId,
+                    s.AMPSubscriptionId,
                     s.Name,
-                    s.PlanId,
-                    s.Quantity,
+                    s.AMPPlanId,
+                    s.AMPQuantity,
                     s.SubscriptionStatus,
                     s.TeamsUserId,
                     s.TenantId,
+                    s.TeamsConversationId,
                     s.CreateDate,
-                    s.ModifyDate
+                    s.ModifyDate,
+                    s.IsActive
                 FROM [dbo].[Subscriptions] s
                 WHERE s.TeamsUserId = @teamsUserId
                 AND s.SubscriptionStatus = 'Subscribed'
+                AND s.IsActive = 1
             `;
 
             if (tenantId) {
@@ -118,7 +172,7 @@ class SaaSIntegrationService {
             const subscription = result.recordset[0];
 
             if (config.saas.debugMode) {
-                console.log(`[SaaSIntegration] Found active subscription: ${subscription.Id} (Plan: ${subscription.PlanId})`);
+                console.log(`[SaaSIntegration] Found active subscription: ${subscription.Id} (Plan: ${subscription.AMPPlanId})`);
             }
 
             return subscription;
@@ -384,6 +438,56 @@ class SaaSIntegrationService {
     hashUserId(userId) {
         const crypto = require('crypto');
         return crypto.createHash('sha256').update(userId).digest('hex').substring(0, 16);
+    }
+
+    /**
+     * Teste la procédure stockée sp_LinkTeamsUserToSubscription
+     * @param {string} ampSubscriptionId - GUID de l'abonnement AMP
+     * @param {string} teamsUserId - ID utilisateur Teams
+     * @param {string} conversationId - ID de la conversation Teams
+     * @param {string} tenantId - ID du tenant Azure AD
+     * @returns {Promise<Object>} Résultat du test
+     */
+    async testLinkTeamsUser(ampSubscriptionId, teamsUserId, conversationId, tenantId) {
+        try {
+            await this.initialize();
+
+            if (!this.isInitialized || !this.pool) {
+                return {
+                    success: false,
+                    error: 'Database connection not initialized',
+                    permissiveMode: config.saas.permissiveMode
+                };
+            }
+
+            const request = this.pool.request();
+            request.input('AmpSubscriptionId', sql.UniqueIdentifier, ampSubscriptionId);
+            request.input('TeamsUserId', sql.NVarChar(255), teamsUserId);
+            request.input('ConversationId', sql.NVarChar(255), conversationId);
+            request.input('TenantId', sql.NVarChar(255), tenantId);
+
+            await request.execute('sp_LinkTeamsUserToSubscription');
+
+            if (config.saas.debugMode) {
+                console.log(`[SaaSIntegration] sp_LinkTeamsUserToSubscription executed successfully`);
+            }
+
+            return {
+                success: true,
+                message: 'Teams user successfully linked to subscription',
+                ampSubscriptionId,
+                teamsUserId,
+                conversationId,
+                tenantId
+            };
+        } catch (error) {
+            console.error('[SaaSIntegration] Error testing sp_LinkTeamsUserToSubscription:', error);
+            return {
+                success: false,
+                error: error.message,
+                stack: config.saas.debugMode ? error.stack : undefined
+            };
+        }
     }
 
     /**
