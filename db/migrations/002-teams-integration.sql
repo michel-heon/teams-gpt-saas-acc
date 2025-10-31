@@ -1,0 +1,401 @@
+-- ============================================================================
+-- Phase 2.3 : Extension schéma base de données - Teams Integration
+-- ============================================================================
+-- Description : Étend le schéma SaaS Accelerator pour supporter l'intégration Teams
+-- Version     : 002
+-- Date        : 31 octobre 2025
+-- Auteur      : michel-heon
+-- Dépendances : SaaS Accelerator 8.2.1+
+-- ============================================================================
+
+USE [sac-02AMPSaaSDB];
+GO
+
+SET NOCOUNT ON;
+GO
+
+PRINT '========================================================================';
+PRINT 'Phase 2.3 : Extension schéma base de données - Teams Integration';
+PRINT '========================================================================';
+PRINT '';
+PRINT 'Date : ' + CONVERT(VARCHAR(20), GETDATE(), 120);
+PRINT 'Base : sac-02AMPSaaSDB';
+PRINT '';
+
+-- ============================================================================
+-- Étape 1 : Extensions table Subscriptions
+-- ============================================================================
+
+PRINT '------------------------------------------------------------------------';
+PRINT 'Étape 1/7 : Ajout colonnes Teams à la table Subscriptions';
+PRINT '------------------------------------------------------------------------';
+
+-- Vérifier si les colonnes existent déjà
+IF NOT EXISTS (
+    SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS 
+    WHERE TABLE_NAME = 'Subscriptions' AND COLUMN_NAME = 'TeamsUserId'
+)
+BEGIN
+    ALTER TABLE [dbo].[Subscriptions] 
+    ADD [TeamsUserId] NVARCHAR(255) NULL;
+    
+    PRINT '✓ Colonne TeamsUserId ajoutée';
+END
+ELSE
+BEGIN
+    PRINT '⊗ Colonne TeamsUserId existe déjà';
+END
+
+IF NOT EXISTS (
+    SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS 
+    WHERE TABLE_NAME = 'Subscriptions' AND COLUMN_NAME = 'TeamsConversationId'
+)
+BEGIN
+    ALTER TABLE [dbo].[Subscriptions] 
+    ADD [TeamsConversationId] NVARCHAR(255) NULL;
+    
+    PRINT '✓ Colonne TeamsConversationId ajoutée';
+END
+ELSE
+BEGIN
+    PRINT '⊗ Colonne TeamsConversationId existe déjà';
+END
+
+IF NOT EXISTS (
+    SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS 
+    WHERE TABLE_NAME = 'Subscriptions' AND COLUMN_NAME = 'TenantId'
+)
+BEGIN
+    ALTER TABLE [dbo].[Subscriptions] 
+    ADD [TenantId] NVARCHAR(255) NULL;
+    
+    PRINT '✓ Colonne TenantId ajoutée';
+END
+ELSE
+BEGIN
+    PRINT '⊗ Colonne TenantId existe déjà';
+END
+
+PRINT '';
+
+-- ============================================================================
+-- Étape 2 : Index de performance sur Subscriptions
+-- ============================================================================
+
+PRINT '------------------------------------------------------------------------';
+PRINT 'Étape 2/7 : Création index de performance';
+PRINT '------------------------------------------------------------------------';
+
+-- Index pour recherche par TeamsUserId
+IF NOT EXISTS (
+    SELECT 1 FROM sys.indexes 
+    WHERE name = 'IX_Subscriptions_TeamsUserId' 
+    AND object_id = OBJECT_ID('Subscriptions')
+)
+BEGIN
+    CREATE NONCLUSTERED INDEX [IX_Subscriptions_TeamsUserId] 
+    ON [dbo].[Subscriptions] ([TeamsUserId])
+    INCLUDE ([Id], [SubscriptionStatus], [AmpplanId]);
+    
+    PRINT '✓ Index IX_Subscriptions_TeamsUserId créé';
+END
+ELSE
+BEGIN
+    PRINT '⊗ Index IX_Subscriptions_TeamsUserId existe déjà';
+END
+
+-- Index pour recherche par TenantId
+IF NOT EXISTS (
+    SELECT 1 FROM sys.indexes 
+    WHERE name = 'IX_Subscriptions_TenantId' 
+    AND object_id = OBJECT_ID('Subscriptions')
+)
+BEGIN
+    CREATE NONCLUSTERED INDEX [IX_Subscriptions_TenantId] 
+    ON [dbo].[Subscriptions] ([TenantId])
+    INCLUDE ([Id], [SubscriptionStatus]);
+    
+    PRINT '✓ Index IX_Subscriptions_TenantId créé';
+END
+ELSE
+BEGIN
+    PRINT '⊗ Index IX_Subscriptions_TenantId existe déjà';
+END
+
+PRINT '';
+
+-- ============================================================================
+-- Étape 3 : Table TeamsMessageLogs (OPTIONNELLE)
+-- ============================================================================
+
+PRINT '------------------------------------------------------------------------';
+PRINT 'Étape 3/7 : Création table TeamsMessageLogs';
+PRINT '------------------------------------------------------------------------';
+
+IF NOT EXISTS (
+    SELECT 1 FROM INFORMATION_SCHEMA.TABLES 
+    WHERE TABLE_NAME = 'TeamsMessageLogs'
+)
+BEGIN
+    CREATE TABLE [dbo].[TeamsMessageLogs] (
+        [Id] BIGINT IDENTITY(1,1) PRIMARY KEY,
+        [SubscriptionId] UNIQUEIDENTIFIER NOT NULL,
+        [TeamsUserId] NVARCHAR(255) NOT NULL,
+        [ConversationId] NVARCHAR(255) NOT NULL,
+        [MessageText] NVARCHAR(MAX) NULL,          -- Privacy: NULL pour RGPD
+        [ResponseText] NVARCHAR(MAX) NULL,          -- Privacy: NULL pour RGPD
+        [TokenCount] INT NULL,
+        [Dimension] NVARCHAR(50) NOT NULL,          -- 'free', 'pro', 'pro-plus'
+        [Timestamp] DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+        [ProcessingTimeMs] INT NULL,
+        [ConversationType] NVARCHAR(20) NULL,       -- '1:1' ou 'group'
+        [HasAttachments] BIT NOT NULL DEFAULT 0,
+        [MessageLength] INT NULL,
+        
+        CONSTRAINT [FK_TeamsMessageLogs_Subscriptions] 
+            FOREIGN KEY ([SubscriptionId]) 
+            REFERENCES [dbo].[Subscriptions]([AmpsubscriptionId])
+            ON DELETE CASCADE
+    );
+    
+    PRINT '✓ Table TeamsMessageLogs créée';
+    
+    -- Index sur SubscriptionId + Timestamp (DESC pour requêtes récentes)
+    CREATE NONCLUSTERED INDEX [IX_TeamsMessageLogs_SubscriptionId_Timestamp] 
+    ON [dbo].[TeamsMessageLogs] ([SubscriptionId], [Timestamp] DESC);
+    
+    PRINT '✓ Index IX_TeamsMessageLogs_SubscriptionId_Timestamp créé';
+    
+    -- Index sur TeamsUserId + Timestamp
+    CREATE NONCLUSTERED INDEX [IX_TeamsMessageLogs_TeamsUserId_Timestamp] 
+    ON [dbo].[TeamsMessageLogs] ([TeamsUserId], [Timestamp] DESC);
+    
+    PRINT '✓ Index IX_TeamsMessageLogs_TeamsUserId_Timestamp créé';
+END
+ELSE
+BEGIN
+    PRINT '⊗ Table TeamsMessageLogs existe déjà';
+END
+
+PRINT '';
+
+-- ============================================================================
+-- Étape 4 : Vue vw_SubscriptionUsageStats
+-- ============================================================================
+
+PRINT '------------------------------------------------------------------------';
+PRINT 'Étape 4/7 : Création vue vw_SubscriptionUsageStats';
+PRINT '------------------------------------------------------------------------';
+
+-- Supprimer vue si existe (pour recréer)
+IF EXISTS (
+    SELECT 1 FROM INFORMATION_SCHEMA.VIEWS 
+    WHERE TABLE_NAME = 'vw_SubscriptionUsageStats'
+)
+BEGIN
+    DROP VIEW [dbo].[vw_SubscriptionUsageStats];
+    PRINT '⊗ Vue vw_SubscriptionUsageStats supprimée (pour recréation)';
+END
+
+-- Créer la vue
+IF EXISTS (
+    SELECT 1 FROM INFORMATION_SCHEMA.TABLES 
+    WHERE TABLE_NAME = 'TeamsMessageLogs'
+)
+BEGIN
+    EXEC('
+    CREATE VIEW [dbo].[vw_SubscriptionUsageStats] AS
+    SELECT 
+        s.Id AS SubscriptionId,
+        s.AmpsubscriptionId AS AmpSubscriptionId,
+        s.Name AS SubscriptionName,
+        s.AmpplanId AS PlanId,
+        s.SubscriptionStatus,
+        s.TeamsUserId,
+        COALESCE(COUNT(tml.Id), 0) AS TotalMessages,
+        COALESCE(SUM(CASE WHEN tml.Dimension = ''free'' THEN 1 ELSE 0 END), 0) AS FreeMessages,
+        COALESCE(SUM(CASE WHEN tml.Dimension = ''pro'' THEN 1 ELSE 0 END), 0) AS ProMessages,
+        COALESCE(SUM(CASE WHEN tml.Dimension = ''pro-plus'' THEN 1 ELSE 0 END), 0) AS ProPlusMessages,
+        MAX(tml.Timestamp) AS LastMessageDate
+    FROM 
+        [dbo].[Subscriptions] s
+        LEFT JOIN [dbo].[TeamsMessageLogs] tml ON s.AmpsubscriptionId = tml.SubscriptionId
+    WHERE
+        (tml.Timestamp >= DATEADD(MONTH, DATEDIFF(MONTH, 0, GETUTCDATE()), 0) -- Mois actuel
+        OR tml.Id IS NULL)
+    GROUP BY 
+        s.Id, s.AmpsubscriptionId, s.Name, s.AmpplanId, s.SubscriptionStatus, s.TeamsUserId
+    ');
+    
+    PRINT '✓ Vue vw_SubscriptionUsageStats créée';
+END
+ELSE
+BEGIN
+    PRINT '⊗ Table TeamsMessageLogs non disponible, vue non créée';
+END
+
+PRINT '';
+
+-- ============================================================================
+-- Étape 5 : Procédure sp_LinkTeamsUserToSubscription
+-- ============================================================================
+
+PRINT '------------------------------------------------------------------------';
+PRINT 'Étape 5/7 : Création procédure sp_LinkTeamsUserToSubscription';
+PRINT '------------------------------------------------------------------------';
+
+-- Supprimer procédure si existe (pour recréer)
+IF EXISTS (
+    SELECT 1 FROM INFORMATION_SCHEMA.ROUTINES 
+    WHERE ROUTINE_NAME = 'sp_LinkTeamsUserToSubscription' 
+    AND ROUTINE_TYPE = 'PROCEDURE'
+)
+BEGIN
+    DROP PROCEDURE [dbo].[sp_LinkTeamsUserToSubscription];
+    PRINT '⊗ Procédure sp_LinkTeamsUserToSubscription supprimée (pour recréation)';
+END
+
+-- Créer la procédure
+EXEC('
+CREATE PROCEDURE [dbo].[sp_LinkTeamsUserToSubscription]
+    @AmpSubscriptionId UNIQUEIDENTIFIER,
+    @TeamsUserId NVARCHAR(255),
+    @TenantId NVARCHAR(255),
+    @ConversationId NVARCHAR(255) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    DECLARE @RowsAffected INT;
+    
+    -- Vérifier que l''abonnement existe
+    IF NOT EXISTS (
+        SELECT 1 FROM [dbo].[Subscriptions] 
+        WHERE [AmpsubscriptionId] = @AmpSubscriptionId
+    )
+    BEGIN
+        RAISERROR(''Abonnement non trouvé avec AmpSubscriptionId: %s'', 16, 1, CAST(@AmpSubscriptionId AS NVARCHAR(36)));
+        RETURN -1;
+    END
+    
+    -- Mettre à jour l''abonnement avec les informations Teams
+    UPDATE [dbo].[Subscriptions]
+    SET 
+        [TeamsUserId] = @TeamsUserId,
+        [TenantId] = @TenantId,
+        [TeamsConversationId] = @ConversationId,
+        [ModifyDate] = GETUTCDATE()
+    WHERE 
+        [AmpsubscriptionId] = @AmpSubscriptionId;
+    
+    SET @RowsAffected = @@ROWCOUNT;
+    
+    -- Retourner le résultat
+    SELECT 
+        @RowsAffected AS RowsAffected,
+        @AmpSubscriptionId AS AmpSubscriptionId,
+        @TeamsUserId AS TeamsUserId,
+        @TenantId AS TenantId,
+        ''SUCCESS'' AS Status;
+    
+    RETURN 0;
+END
+');
+
+PRINT '✓ Procédure sp_LinkTeamsUserToSubscription créée';
+PRINT '';
+
+-- ============================================================================
+-- Étape 6 : Insertion version dans DatabaseVersionHistory
+-- ============================================================================
+
+PRINT '------------------------------------------------------------------------';
+PRINT 'Étape 6/7 : Enregistrement version dans DatabaseVersionHistory';
+PRINT '------------------------------------------------------------------------';
+
+IF NOT EXISTS (
+    SELECT 1 FROM [dbo].[DatabaseVersionHistory]
+    WHERE VersionNumber = 8.30
+)
+BEGIN
+    INSERT INTO [dbo].[DatabaseVersionHistory] (
+        VersionNumber, 
+        ChangeLog, 
+        CreateBy, 
+        CreateDate
+    )
+    VALUES (
+        8.30,
+        'Phase 2.3 - Teams Integration: Ajout colonnes TeamsUserId, TeamsConversationId, TenantId à Subscriptions. Ajout table TeamsMessageLogs (optionnelle). Ajout index de performance. Ajout vue vw_SubscriptionUsageStats. Ajout procédure sp_LinkTeamsUserToSubscription.',
+        'teams-gpt-saas-acc',
+        GETUTCDATE()
+    );
+    
+    PRINT '✓ Version 8.30 enregistrée dans DatabaseVersionHistory';
+END
+ELSE
+BEGIN
+    PRINT '⊗ Version 8.30 déjà présente dans DatabaseVersionHistory';
+END
+
+PRINT '';
+
+-- ============================================================================
+-- Étape 7 : Résumé des modifications
+-- ============================================================================
+
+PRINT '------------------------------------------------------------------------';
+PRINT 'Étape 7/7 : Résumé des modifications';
+PRINT '------------------------------------------------------------------------';
+PRINT '';
+
+-- Compter les colonnes ajoutées
+DECLARE @ColonnesAjoutees INT = 0;
+SELECT @ColonnesAjoutees = COUNT(*)
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_NAME = 'Subscriptions'
+AND COLUMN_NAME IN ('TeamsUserId', 'TeamsConversationId', 'TenantId');
+
+PRINT 'Colonnes ajoutées à Subscriptions   : ' + CAST(@ColonnesAjoutees AS VARCHAR(2)) + '/3';
+
+-- Compter les index créés
+DECLARE @IndexCrees INT = 0;
+SELECT @IndexCrees = COUNT(*)
+FROM sys.indexes
+WHERE object_id = OBJECT_ID('Subscriptions')
+AND name IN ('IX_Subscriptions_TeamsUserId', 'IX_Subscriptions_TenantId');
+
+PRINT 'Index créés sur Subscriptions       : ' + CAST(@IndexCrees AS VARCHAR(2)) + '/2';
+
+-- Vérifier table TeamsMessageLogs
+IF EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'TeamsMessageLogs')
+    PRINT 'Table TeamsMessageLogs              : ✓ Créée';
+ELSE
+    PRINT 'Table TeamsMessageLogs              : ✗ Non créée';
+
+-- Vérifier vue
+IF EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_NAME = 'vw_SubscriptionUsageStats')
+    PRINT 'Vue vw_SubscriptionUsageStats       : ✓ Créée';
+ELSE
+    PRINT 'Vue vw_SubscriptionUsageStats       : ✗ Non créée';
+
+-- Vérifier procédure
+IF EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_NAME = 'sp_LinkTeamsUserToSubscription')
+    PRINT 'Procédure sp_LinkTeamsUserToSub...  : ✓ Créée';
+ELSE
+    PRINT 'Procédure sp_LinkTeamsUserToSub...  : ✗ Non créée';
+
+PRINT '';
+PRINT '========================================================================';
+PRINT 'Migration Phase 2.3 TERMINÉE';
+PRINT '========================================================================';
+PRINT '';
+PRINT 'Prochaines étapes :';
+PRINT '  1. Exécuter script de test : 002-teams-integration-test.sql';
+PRINT '  2. Vérifier que les tests passent';
+PRINT '  3. Redémarrer l''application Teams GPT pour tester l''intégration';
+PRINT '';
+PRINT 'Date fin : ' + CONVERT(VARCHAR(20), GETDATE(), 120);
+PRINT '';
+
+GO
