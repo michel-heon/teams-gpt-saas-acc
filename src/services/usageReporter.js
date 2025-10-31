@@ -14,7 +14,7 @@ class UsageReporter {
      * @param {Object} metadata - Métadonnées additionnelles
      * @returns {Object} Données formatées pour insertion
      */
-    async reportUsage(subscriptionId, dimension, quantity, metadata) {
+    async reportUsage(subscriptionId, dimension, quantity, metadata = {}) {
         try {
             // Valider les paramètres
             this.validateUsageParams(subscriptionId, dimension, quantity);
@@ -121,8 +121,8 @@ class UsageReporter {
             throw new Error(`Invalid dimension: ${dimension}. Valid dimensions are: ${validDimensions.join(', ')}`);
         }
 
-        if (typeof quantity !== 'number' || quantity <= 0) {
-            throw new Error('quantity must be a positive number');
+        if (typeof quantity !== 'number' || quantity < 0) {
+            throw new Error('quantity must be a non-negative number');
         }
     }
 

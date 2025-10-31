@@ -17,7 +17,11 @@
         "dev:teamsfx:launch-testtool": "env-cmd --silent -f env/.env.playground teamsapptester start",
         "dev": "nodemon --inspect=9239 --signal SIGINT ./src/index.js",
         "start": "node ./src/index.js",
-        "test": "echo \"Error: no test specified\" && exit 1",
+        "test": "jest",
+        "test:unit": "jest tests/unit",
+        "test:integration": "jest tests/integration",
+        "test:watch": "jest --watch",
+        "test:coverage": "jest --coverage",
         "watch": "nodemon --exec \"npm run start\""
     },
     "repository": {
@@ -33,7 +37,10 @@
         "mssql": "^12.0.0"
     },
     "devDependencies": {
+        "@types/jest": "^30.0.0",
+        "dotenv": "^17.2.3",
         "env-cmd": "^10.1.0",
+        "jest": "^30.2.0",
         "nodemon": "^3.1.7"
     }
 }
