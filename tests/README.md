@@ -18,6 +18,39 @@ tests/
 
 ## Commandes
 
+### Via Makefile (recommandé)
+
+```bash
+# Afficher l'aide
+make help
+
+# Tous les tests
+make test
+
+# Tests unitaires uniquement
+make unit
+
+# Tests d'intégration uniquement
+make integration
+
+# Mode watch (re-exécute automatiquement)
+make watch
+
+# Couverture de code
+make coverage
+
+# Résumé des tests
+make summary
+
+# Vérifier les credentials Azure
+make check-credentials
+
+# Nettoyer les fichiers générés
+make clean
+```
+
+### Via npm directement
+
 ```bash
 # Tous les tests
 npm test
@@ -76,6 +109,12 @@ SAAS_DB_USER=<votre-utilisateur-sql>
 SAAS_DB_PASSWORD=<votre-mot-de-passe-sql>
 ```
 
+**⚠️ Important** : Le serveur SQL utilise **Azure AD Only Authentication** par défaut. Consultez le guide détaillé dans [`AZURE-SQL-CONFIG.md`](./AZURE-SQL-CONFIG.md) pour configurer l'authentification (Azure AD ou SQL).
+
+Options de configuration :
+- **Option 1 (Recommandée)** : Authentification Azure AD - nécessite `az login` et modification du code pour utiliser `azure-active-directory-default`
+- **Option 2** : Authentification SQL - nécessite de désactiver Azure AD Only Authentication et configurer username/password
+
 ### Scénarios testés
 
 1. **Connexion database** : Vérification de la configuration et connexion
@@ -94,6 +133,34 @@ Fichiers exclus de la couverture :
 - `src/app/app.js` (configuration Bot Framework)
 
 ## Exécution locale
+
+### Avec Makefile (recommandé)
+
+```bash
+# 1. Installer les dépendances
+make install
+
+# 2. Configurer les variables d'environnement (dans le dossier racine)
+cp env/.env.dev.example env/.env.dev
+# Éditer env/.env.dev avec vos valeurs
+
+# 3. Afficher les commandes disponibles
+make help
+
+# 4. Lancer les tests unitaires
+make unit
+
+# 5. Lancer les tests d'intégration (nécessite connexion DB)
+make integration
+
+# 6. Vérifier la couverture
+make coverage
+
+# 7. Voir le résumé des tests
+make summary
+```
+
+### Sans Makefile (npm direct)
 
 ```bash
 # 1. Installer les dépendances
