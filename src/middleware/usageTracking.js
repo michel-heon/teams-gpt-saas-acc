@@ -1,6 +1,10 @@
 /**
  * Middleware de tracking d'usage des messages
- * Enregistre chaque message, vérifie les limites du plan, et gère la facturation
+ * Enregistre chaque message pour facturation Azure Marketplace (metered billing)
+ * 
+ * IMPORTANT: Ce middleware ne BLOQUE JAMAIS les messages.
+ * Il enregistre uniquement l'usage pour facturation via l'API Azure Marketplace.
+ * La limite de messages est gérée par Azure Marketplace, pas par l'application.
  */
 
 const saasIntegration = require('../services/saasIntegration');
@@ -9,19 +13,19 @@ const usageReporter = require('../services/usageReporter');
 const config = require('../config');
 
 /**
- * Middleware qui track l'usage des messages et vérifie les limites
+ * Middleware qui track l'usage des messages pour facturation Azure Marketplace
  * Doit être appelé APRÈS subscriptionCheckMiddleware
  * @param {Object} context - Le contexte du middleware {send, activity, subscription, ...}
  * @param {Function} next - La fonction next pour continuer le pipeline
  */
 async function usageTrackingMiddleware(context, next) {
-  const { send, activity, subscription } = context;
+  const { activity, subscription } = context;
   
   try {
-    // Si pas d'abonnement (mode permissif), continuer sans tracking
-    if (!subscription) {
+    // Si pas d'abonnement ou tracking désactivé, continuer sans tracking
+    if (!subscription || !config.saas.enableUsageTracking) {
       if (config.saas.debugMode) {
-        console.log('[UsageTracking] No subscription found, skipping usage tracking');
+        console.log('[UsageTracking] No subscription or tracking disabled, skipping usage tracking');
       }
       return await next();
     }
@@ -32,7 +36,7 @@ async function usageTrackingMiddleware(context, next) {
       console.log(`[UsageTracking] Processing message for subscription: ${subscriptionId}`);
     }
     
-    // 1. Classifier le message (standard ou premium)
+    // 1. Classifier le message (free, pro, pro-plus)
     const dimension = messageClassifier.classifyMessage(activity, subscription);
     const metadata = messageClassifier.getMessageMetadata(activity);
     const isPremium = messageClassifier.isPremiumMessage(activity);
@@ -46,45 +50,7 @@ async function usageTrackingMiddleware(context, next) {
       });
     }
     
-    // 2. Vérifier les limites AVANT de traiter le message
-    const limitCheck = await saasIntegration.checkMessageLimit(subscriptionId, dimension);
-    
-    if (!limitCheck.allowed) {
-      // Limite atteinte
-      const dimensionInfo = messageClassifier.getDimensionInfo(dimension);
-      const cost = dimensionInfo.cost;
-      
-      await send(
-        `⚠️ **Message Limit Reached**\n\n` +
-        `You've reached your monthly limit of **${limitCheck.limit} messages** for the **${subscription.planId}** plan.\n\n` +
-        `**Current usage:** ${limitCheck.used} / ${limitCheck.limit} messages\n\n` +
-        `**Options:**\n` +
-        `• Upgrade to a higher plan for more messages\n` +
-        `• Wait until next month (resets on ${limitCheck.resetDate || 'billing date'})\n` +
-        `• Pay ${cost.toFixed(2)}€ per additional ${isPremium ? 'premium ' : ''}message (overage billing)\n\n` +
-        `Visit the [Azure Portal](https://portal.azure.com/) to manage your subscription.`
-      );
-      
-      // Logger le refus (pour analytics)
-      console.warn(`[UsageTracking] Message blocked - limit reached:`, {
-        subscriptionId,
-        dimension,
-        used: limitCheck.used,
-        limit: limitCheck.limit
-      });
-      
-      return; // Stopper le pipeline
-    }
-    
-    if (config.saas.debugMode) {
-      console.log(`[UsageTracking] Limit check passed:`, {
-        used: limitCheck.used,
-        limit: limitCheck.limit,
-        remaining: limitCheck.remaining
-      });
-    }
-    
-    // 3. Attacher les informations de tracking au contexte
+    // 2. Attacher les informations de tracking au contexte
     context.usageTracking = {
       subscriptionId,
       dimension,
@@ -93,14 +59,15 @@ async function usageTrackingMiddleware(context, next) {
       startTime: Date.now()
     };
     
-    // 4. Continuer vers le handler du message (traitement OpenAI)
+    // 3. Continuer vers le handler du message (traitement OpenAI)
+    // IMPORTANT: On ne bloque JAMAIS avant le traitement
     await next();
     
-    // 5. APRÈS le traitement réussi, enregistrer l'usage
+    // 4. APRÈS le traitement réussi, enregistrer l'usage
     const processingTime = Date.now() - context.usageTracking.startTime;
     
     try {
-      // Track dans la base de données SaaS Accelerator
+      // Track dans la base de données et émettre vers Azure Marketplace API
       await saasIntegration.trackMessageUsage(
         subscriptionId,
         dimension,
@@ -130,67 +97,48 @@ async function usageTrackingMiddleware(context, next) {
         console.log(`[UsageTracking] ✅ Usage tracked successfully:`, {
           subscriptionId,
           dimension,
-          processingTime: `${processingTime}ms`,
-          newUsed: limitCheck.used + 1,
-          remaining: limitCheck.remaining - 1
+          processingTime: `${processingTime}ms`
         });
       }
       
-      // Avertissement si proche de la limite
-      const remaining = limitCheck.remaining - 1;
-      const warningThreshold = limitCheck.limit * 0.1; // 10% de la limite
-      
-      if (remaining <= warningThreshold && remaining > 0) {
-        const dimensionInfo = messageClassifier.getDimensionInfo(dimension);
-        await send(
-          `\n\n---\n` +
-          `⚠️ **Usage Warning:** You have **${remaining}** messages remaining this month.\n` +
-          `Consider upgrading your plan or additional messages will be billed at ${dimensionInfo.cost.toFixed(2)}€ each.`
-        );
-      }
-      
     } catch (trackingError) {
-      // Erreur lors du tracking: logger mais ne pas bloquer l'utilisateur
-      console.error('[UsageTracking] Error tracking usage:', trackingError);
+      // Erreur lors du tracking: logger mais ne JAMAIS bloquer l'utilisateur
+      console.error('[UsageTracking] Error tracking usage (non-blocking):', trackingError);
       
-      if (!config.saas.permissiveMode) {
-        // En mode strict, informer l'utilisateur
-        await send(
-          `\n\n---\n` +
-          `⚠️ **Note:** Your message was processed but usage tracking failed. ` +
-          `Please contact support if this persists.`
-        );
-      }
+      // Ne pas informer l'utilisateur - le tracking est transparent
+      // L'admin sera alerté via les logs centralisés
     }
     
   } catch (error) {
     console.error('[UsageTracking] Critical error:', error);
     
-    if (config.saas.permissiveMode) {
-      // En mode permissif, continuer même en cas d'erreur
-      console.warn('[UsageTracking] Error occurred but permissive mode enabled, continuing...');
+    // Toujours continuer en mode permissif - le tracking ne doit jamais bloquer
+    console.warn('[UsageTracking] Error occurred but continuing (usage tracking is non-blocking)...');
+    
+    // Si next() n'a pas encore été appelé (erreur avant le traitement)
+    if (!context.usageTracking || !context.usageTracking.startTime) {
       await next();
-    } else {
-      // En mode strict, bloquer
-      await send(
-        "⚠️ **Service Temporarily Unavailable**\n\n" +
-        "We're having trouble processing your request. Please try again in a few moments.\n\n" +
-        "If the problem persists, please contact support."
-      );
     }
   }
 }
+
 
 /**
  * Fonction helper pour obtenir les statistiques d'usage d'un utilisateur
  * @param {string} subscriptionId - L'ID de l'abonnement
  * @param {string} dimension - La dimension à vérifier (optionnel)
- * @returns {Promise<Object>} Statistiques d'usage
+ * @returns {Promise<Object>} Statistiques d'usage depuis MeteredAuditLogs
  */
 async function getUsageStats(subscriptionId, dimension = null) {
   try {
+    // Cette fonction interroge seulement les logs d'audit locaux
+    // Elle ne représente PAS les limites ou la facturation réelle
+    // Pour la facturation réelle, consulter Azure Marketplace Portal
+    
     if (dimension) {
-      return await saasIntegration.checkMessageLimit(subscriptionId, dimension);
+      // Obtenir les stats pour une dimension spécifique depuis les logs
+      const stats = await saasIntegration.getUsageStatsFromLogs(subscriptionId, dimension);
+      return stats;
     }
     
     // Obtenir les stats pour toutes les dimensions
@@ -198,7 +146,7 @@ async function getUsageStats(subscriptionId, dimension = null) {
     const stats = {};
     
     for (const dim of dimensions) {
-      stats[dim] = await saasIntegration.checkMessageLimit(subscriptionId, dim);
+      stats[dim] = await saasIntegration.getUsageStatsFromLogs(subscriptionId, dim);
     }
     
     return stats;
@@ -208,25 +156,8 @@ async function getUsageStats(subscriptionId, dimension = null) {
   }
 }
 
-/**
- * Fonction helper pour réinitialiser les compteurs d'usage (admin)
- * @param {string} subscriptionId - L'ID de l'abonnement
- * @returns {Promise<void>}
- */
-async function resetUsageCounters(subscriptionId) {
-  try {
-    // Cette fonction devra être implémentée dans saasIntegration
-    // Pour l'instant, logger seulement
-    console.log(`[UsageTracking] Reset usage counters for subscription: ${subscriptionId}`);
-    // TODO: Implémenter la réinitialisation dans la DB
-  } catch (error) {
-    console.error('[UsageTracking] Error resetting usage counters:', error);
-    throw error;
-  }
-}
-
 module.exports = {
   usageTrackingMiddleware,
-  getUsageStats,
-  resetUsageCounters
+  getUsageStats
 };
+

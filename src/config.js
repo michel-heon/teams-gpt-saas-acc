@@ -56,6 +56,27 @@ const config = {
     // URLs
     portalUrl: process.env.SAAS_PORTAL_URL || 'https://sac-02-portal.azurewebsites.net',
     adminUrl: process.env.SAAS_ADMIN_URL || 'https://sac-02-admin.azurewebsites.net'
+  },
+
+  // Azure Marketplace Metering Service API - Phase 2.5
+  marketplace: {
+    // Enable/disable metering API calls (set to false for development/testing)
+    enabled: process.env.MARKETPLACE_METERING_ENABLED === 'true',
+    
+    // Azure AD authentication for Marketplace API
+    tenantId: process.env.MARKETPLACE_METERING_TENANT_ID || process.env.TENANT_ID,
+    clientId: process.env.MARKETPLACE_METERING_CLIENT_ID || process.env.CLIENT_ID,
+    clientSecret: process.env.MARKETPLACE_METERING_CLIENT_SECRET || process.env.CLIENT_SECRET,
+    
+    // Marketplace Metering Service API endpoint
+    meteringApiUrl: process.env.MARKETPLACE_METERING_API_URL || 'https://marketplaceapi.microsoft.com/api/usageEvent?api-version=2018-08-31',
+    
+    // Retry configuration
+    retryMax: parseInt(process.env.MARKETPLACE_METERING_RETRY_MAX) || 3,
+    retryDelay: parseInt(process.env.MARKETPLACE_METERING_RETRY_DELAY) || 1000, // ms
+    
+    // Resource ID scope (default to Marketplace API)
+    resourceId: process.env.MARKETPLACE_METERING_RESOURCE_ID || '20e940b3-4c77-4b0b-9a53-9e16a1b010a7'
   }
 };
 

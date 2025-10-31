@@ -24,15 +24,302 @@ Facturation mensuelle = Prix de base + (Messages utilisés - Quota inclus) × Ta
 
 #### Application Teams GPT
 ✅ Vérifier l'existence d'un abonnement actif (optionnel)
-✅ Enregistrer TOUS les messages dans `MeteredAuditLogs` (dimension + quantity)
+✅ **ÉMETTRE** les événements d'usage vers l'API Azure Marketplace (POST)
+✅ Enregistrer localement dans `MeteredAuditLogs` pour audit (APRÈS émission API)
 ❌ NE PAS vérifier les limites de quota
 ❌ NE JAMAIS bloquer les dépassements
 
 #### Azure Marketplace
+✅ Recevoir les événements d'usage via API REST
 ✅ Calculer automatiquement les dépassements
 ✅ Facturer : base + (usage - quota) × tarif
 ✅ Gérer les périodes d'essai (pas de base ni de dépassement)
 ✅ Gérer les abonnements (création, suspension, résiliation)
+
+## Mécanisme du compteur de messages (Metered Billing)
+
+### Principe de fonctionnement
+
+Azure Marketplace utilise un modèle de **facturation à la consommation** (metered billing) où l'application **émet activement** les événements d'usage vers l'API Marketplace. Azure Marketplace **NE LIT PAS** la base de données de l'application.
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     Flux de facturation                          │
+└─────────────────────────────────────────────────────────────────┘
+
+1. Utilisateur envoie un message
+          ↓
+2. Application traite le message (OpenAI)
+          ↓
+3. ⚡ Application POST vers Marketplace Metering Service API
+   https://marketplaceapi.microsoft.com/api/usageEvent
+   Body: {
+     resourceId: "subscription-guid",
+     planId: "professional",
+     dimension: "pro",
+     quantity: 1,
+     effectiveStartTime: "2024-01-15T10:30:00Z"
+   }
+          ↓
+4. ✅ Azure Marketplace répond avec usageEventId
+   Response: {
+     usageEventId: "event-guid",
+     status: "Accepted",
+     messageTime: "2024-01-15T10:30:01Z",
+     resourceId: "subscription-guid",
+     quantity: 1,
+     dimension: "pro"
+   }
+          ↓
+5. 📝 Application INSERT dans MeteredAuditLogs (audit local uniquement)
+   - RequestJson: événement envoyé
+   - ResponseJson: réponse de l'API (avec usageEventId)
+          ↓
+6. 🧮 Azure Marketplace agrège tous les événements
+          ↓
+7. 💰 Azure Marketplace calcule et facture en fin de mois
+```
+
+### Architecture de l'API Marketplace Metering Service
+
+#### Endpoint
+```
+POST https://marketplaceapi.microsoft.com/api/usageEvent?api-version=2018-08-31
+```
+
+#### Authentication
+- **Méthode :** Azure AD Client Credentials Flow (OAuth 2.0)
+- **Token endpoint :** `https://login.microsoftonline.com/{tenantId}/oauth2/token`
+- **Resource ID :** `20e940b3-4c77-4b0b-9a53-9e16a1b010a7` (Marketplace API)
+- **Grant type :** `client_credentials`
+- **Credentials :** Client ID + Client Secret (même app registration que SaaS Accelerator)
+
+#### Request Format
+```json
+{
+  "resourceId": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",  // GUID de l'abonnement Marketplace
+  "planId": "professional",                              // Plan de l'abonnement
+  "dimension": "pro",                                    // Dimension de facturation
+  "quantity": 1,                                         // Quantité (1 message)
+  "effectiveStartTime": "2024-01-15T10:30:00.000Z"      // Timestamp UTC (ISO 8601)
+}
+```
+
+#### Response (Success 200)
+```json
+{
+  "usageEventId": "yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy",
+  "status": "Accepted",
+  "messageTime": "2024-01-15T10:30:01.234Z",
+  "resourceId": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  "quantity": 1.0,
+  "dimension": "pro",
+  "effectiveStartTime": "2024-01-15T10:30:00.000Z",
+  "planId": "professional"
+}
+```
+
+#### Error Responses
+| Code | Signification | Action |
+|------|---------------|--------|
+| 400 | Bad Request (données invalides) | Vérifier format des données (resourceId doit être un GUID valide, quantity > 0) |
+| 401 | Unauthorized (token invalide/expiré) | Renouveler le token Azure AD |
+| 403 | Forbidden (abonnement non autorisé) | Vérifier que l'abonnement existe et est actif |
+| 409 | Conflict (événement en double) | Un événement pour cette heure existe déjà, ignorer |
+| 500 | Internal Server Error | Réessayer avec backoff exponentiel |
+
+#### Contraintes importantes
+
+1. **Un événement par heure maximum**
+   - Limite : 1 événement par (resourceId + dimension + heure UTC)
+   - Exemple : Si un événement est émis à 10:30:00, tout autre événement pour la même subscription+dimension entre 10:00:00 et 10:59:59 sera rejeté avec 409 Conflict
+   - **Solution :** Agréger les messages par heure avant émission
+
+2. **Fenêtre temporelle : 24 heures**
+   - `effectiveStartTime` doit être dans les dernières 24 heures
+   - Les événements antérieurs à 24h sont rejetés avec 400 Bad Request
+
+3. **Idempotence**
+   - Les événements avec même (resourceId + dimension + effectiveStartTime) sont dédupliqués
+   - Utiliser 409 Conflict comme signal "déjà traité" (pas une erreur)
+
+### Implémentation dans Teams GPT
+
+#### Service meteringApiService.js
+
+```javascript
+const MarketplaceMeteringService = require('./services/meteringApiService');
+const meteringService = new MarketplaceMeteringService();
+
+// À l'initialisation de l'app
+await meteringService.initialize();
+
+// Lors du tracking d'un message
+try {
+  const result = await meteringService.emitUsageEvent(
+    subscription.ampSubscriptionId,  // resourceId (GUID)
+    subscription.ampPlanId,           // planId (ex: "professional")
+    dimension,                         // "free", "pro", ou "pro-plus"
+    1                                  // quantity = 1 message
+  );
+  
+  console.log(`✅ Usage event emitted: ${result.usageEventId}`);
+  
+  // Enregistrer dans MeteredAuditLogs pour audit
+  await db.insertMeteredAuditLog({
+    SubscriptionId: subscription.id,
+    RequestJson: JSON.stringify({
+      resourceId: subscription.ampSubscriptionId,
+      planId: subscription.ampPlanId,
+      dimension,
+      quantity: 1
+    }),
+    ResponseJson: JSON.stringify(result),
+    StatusCode: 200
+  });
+  
+} catch (error) {
+  if (error.response?.status === 409) {
+    // Événement en double (déjà émis cette heure), ignorer
+    console.log('ℹ️ Usage event already emitted for this hour');
+  } else {
+    // Autre erreur : logger mais NE PAS bloquer l'utilisateur
+    console.error('❌ Failed to emit usage event:', error);
+  }
+}
+```
+
+#### Gestion du cache de token Azure AD
+
+Le service `meteringApiService` gère automatiquement :
+- **Acquisition du token** : POST vers token endpoint avec client_id + client_secret
+- **Cache du token** : Stocké en mémoire avec expiration (3600s - 300s buffer = 3300s)
+- **Renouvellement automatique** : Vérifie expiration avant chaque appel API
+
+```javascript
+async getAccessToken() {
+  // Vérifier si token en cache et valide
+  if (this.accessToken && Date.now() < this.tokenExpiry) {
+    return `Bearer ${this.accessToken}`;
+  }
+  
+  // Acquérir nouveau token
+  const response = await axios.post(tokenEndpoint, {
+    grant_type: 'client_credentials',
+    client_id: config.marketplace.clientId,
+    client_secret: config.marketplace.clientSecret,
+    resource: '20e940b3-4c77-4b0b-9a53-9e16a1b010a7'
+  });
+  
+  // Cacher avec buffer de 5 minutes
+  this.accessToken = response.data.access_token;
+  this.tokenExpiry = Date.now() + (response.data.expires_in - 300) * 1000;
+  
+  return `Bearer ${this.accessToken}`;
+}
+```
+
+#### Agrégation par heure (future amélioration)
+
+**Problème actuel :** L'API limite à 1 événement/heure. Si un utilisateur envoie 10 messages en 30 minutes, seul le premier sera accepté.
+
+**Solution :** Implémenter un système d'agrégation :
+```javascript
+// Buffer local (en mémoire ou Redis)
+const usageBuffer = new Map();
+
+async function trackMessage(subscriptionId, dimension) {
+  const hour = new Date().setMinutes(0, 0, 0); // Arrondir à l'heure
+  const key = `${subscriptionId}:${dimension}:${hour}`;
+  
+  // Incrémenter compteur local
+  const count = (usageBuffer.get(key) || 0) + 1;
+  usageBuffer.set(key, count);
+  
+  // Émettre vers API toutes les heures
+  if (count === 1 || isNewHour()) {
+    await meteringService.emitUsageEvent(subscriptionId, planId, dimension, count);
+    usageBuffer.delete(key);
+  }
+}
+```
+
+**Note :** Pour Phase 2.5, on émet 1 événement par message (acceptable pour MVP). L'agrégation sera implémentée en Phase 3 si nécessaire.
+
+### Table MeteredAuditLogs : Audit local uniquement
+
+**IMPORTANT :** Cette table est utilisée **EXCLUSIVEMENT pour l'audit local**. Azure Marketplace **NE LIT JAMAIS** cette table.
+
+#### Structure
+```sql
+CREATE TABLE MeteredAuditLogs (
+    Id INT PRIMARY KEY IDENTITY,
+    SubscriptionId UNIQUEIDENTIFIER NOT NULL,  -- ID interne SaaS Accelerator
+    RequestJson NVARCHAR(MAX),                 -- Événement envoyé à l'API
+    ResponseJson NVARCHAR(MAX),                -- Réponse de l'API (avec usageEventId)
+    StatusCode INT,                            -- Code HTTP (200, 409, 400, 500)
+    RunBy NVARCHAR(256),                       -- "system" ou userId
+    CreatedDate DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+);
+```
+
+#### Exemple de données
+```json
+// RequestJson
+{
+  "resourceId": "12345678-1234-1234-1234-123456789abc",
+  "planId": "professional",
+  "dimension": "pro",
+  "quantity": 1,
+  "effectiveStartTime": "2024-01-15T10:30:00.000Z"
+}
+
+// ResponseJson (StatusCode 200)
+{
+  "usageEventId": "87654321-4321-4321-4321-cba987654321",
+  "status": "Accepted",
+  "messageTime": "2024-01-15T10:30:01.234Z",
+  "resourceId": "12345678-1234-1234-1234-123456789abc",
+  "quantity": 1.0,
+  "dimension": "pro",
+  "effectiveStartTime": "2024-01-15T10:30:00.000Z",
+  "planId": "professional"
+}
+
+// ResponseJson (StatusCode 409 - Duplicate)
+{
+  "error": {
+    "code": "Conflict",
+    "message": "Duplicate usage event for the same hour"
+  }
+}
+```
+
+#### Utilité de MeteredAuditLogs
+
+1. **Audit et conformité**
+   - Traçabilité complète des événements émis
+   - Preuve en cas de litige avec Azure
+   - Conformité RGPD (logs horodatés)
+
+2. **Debugging**
+   - Vérifier quels événements ont été émis
+   - Identifier les erreurs 409 (duplicates)
+   - Analyser les échecs d'émission (400, 401, 500)
+
+3. **Reporting interne**
+   - Comparer usage réel vs facturation Azure
+   - Statistiques par dimension
+   - Dashboard d'administration
+
+4. **Réconciliation**
+   - Vérifier cohérence avec Azure Marketplace
+   - Détecter événements manquants ou rejetés
+   - Support client (prouver que l'événement a été émis)
+
+**Azure Marketplace calcule la facturation en se basant UNIQUEMENT sur les événements reçus via l'API, PAS sur cette table.**
+
+
 
 ## Architecture des composants
 
@@ -59,31 +346,36 @@ Facturation mensuelle = Prix de base + (Messages utilisés - Quota inclus) × Ta
 │  │     └─> Traitement OpenAI                               │   │
 │  │                                                          │   │
 │  │  3. usageTrackingMiddleware (APRÈS traitement)          │   │
-│  │     └─> Enregistre usage dans MeteredAuditLogs         │   │
+│  │     └─> Émet événement vers Marketplace API            │   │
+│  │     └─> Enregistre dans MeteredAuditLogs (audit)       │   │
 │  └─────────────────────────────────────────────────────────┘   │
-└────────────────────┬────────────────────┬───────────────────────┘
-                     │                    │
-                     ▼                    ▼
-┌─────────────────────────────┐  ┌──────────────────────────────┐
-│  Azure OpenAI Service       │  │  SaaS Integration Service    │
-│  (Traitement IA)            │  │  (src/services/              │
-│                             │  │   saasIntegration.js)        │
-└─────────────────────────────┘  └──────────────┬───────────────┘
-                                                 │
-                                                 ▼
-                                  ┌──────────────────────────────┐
-                                  │  Azure SQL Database          │
-                                  │  (SaaS Accelerator)          │
-                                  │                              │
-                                  │  - Subscriptions             │
-                                  │  - MeteredAuditLogs          │
-                                  └──────────────┬───────────────┘
-                                                 │
-                                                 ▼
-                                  ┌──────────────────────────────┐
-                                  │  Azure Marketplace           │
-                                  │  (Facturation automatique)   │
-                                  └──────────────────────────────┘
+└────────┬──────────────────────┬────────────┬────────────────────┘
+         │                      │            │
+         ▼                      ▼            ▼
+┌─────────────────┐  ┌─────────────────────────────────────────┐
+│  Azure OpenAI   │  │  SaaS Integration Service               │
+│  Service        │  │  (src/services/saasIntegration.js)      │
+│  (Traitement)   │  │                                         │
+└─────────────────┘  │  ┌───────────────────────────────────┐ │
+                     │  │  meteringApiService.js            │ │
+                     │  │  - Azure AD authentication        │ │
+                     │  │  - POST to Marketplace API        │ │
+                     │  │  - Token caching & retry logic    │ │
+                     │  └──────────────┬────────────────────┘ │
+                     └─────────────────┼──────────────────────┘
+                                       │            │
+                          ┌────────────┘            └────────────┐
+                          ▼                                      ▼
+           ┌──────────────────────────────┐   ┌─────────────────────────────┐
+           │  Azure SQL Database          │   │  Azure Marketplace          │
+           │  (SaaS Accelerator)          │   │  Metering Service API       │
+           │                              │   │                             │
+           │  - Subscriptions             │   │  POST /api/usageEvent       │
+           │  - MeteredAuditLogs (audit)  │   │  {resourceId, dimension,    │
+           └──────────────────────────────┘   │   quantity, planId}         │
+                                              │                             │
+                                              │  → Calcule facturation      │
+                                              └─────────────────────────────┘
 ```
 
 ## Flux de traitement d'un message
@@ -99,6 +391,8 @@ sequenceDiagram
     participant DB as Azure SQL (SaaS Accelerator)
     participant OpenAI as Azure OpenAI
     participant Usage as usageTrackingMiddleware
+    participant MktAPI as Azure Marketplace API
+    participant Metering as meteringApiService
 
     User->>App: Envoie message
     App->>SubCheck: Vérification abonnement ?
@@ -142,9 +436,36 @@ sequenceDiagram
         alt Plan = development
             Note over SaaS: Pas de tracking<br/>(messages illimités gratuits)
         else Plan avec facturation
-            SaaS->>DB: INSERT INTO MeteredAuditLogs<br/>(dimension, quantity=1, timestamp)
-            DB-->>SaaS: OK
-            Note over DB: Azure Marketplace lit<br/>MeteredAuditLogs pour<br/>calculer la facturation
+            SaaS->>Metering: emitUsageEvent(subscriptionId, planId, dimension, 1)
+            
+            Note over Metering: 1. Vérifier token Azure AD<br/>2. Construire payload<br/>3. POST vers API
+            
+            Metering->>MktAPI: POST /api/usageEvent<br/>{resourceId, planId, dimension, quantity:1}
+            
+            alt API Success (200 OK)
+                MktAPI-->>Metering: {usageEventId, status:"Accepted"}
+                Metering-->>SaaS: {usageEventId, status, messageTime}
+                
+                SaaS->>DB: INSERT INTO MeteredAuditLogs<br/>(RequestJson, ResponseJson, StatusCode:200)
+                Note over DB: Enregistre événement<br/>pour audit local<br/>(Azure ne lit PAS cette table)
+                
+            else API Duplicate (409 Conflict)
+                MktAPI-->>Metering: 409 Conflict (événement déjà émis cette heure)
+                Metering-->>SaaS: Error 409 (non-bloquant)
+                
+                SaaS->>DB: INSERT INTO MeteredAuditLogs<br/>(RequestJson, ResponseJson, StatusCode:409)
+                Note over SaaS: Logger mais continuer<br/>(événement déjà comptabilisé)
+                
+            else API Error (401/403/400/500)
+                MktAPI-->>Metering: Error (auth/validation/server)
+                Metering-->>SaaS: Error (non-bloquant)
+                
+                SaaS->>DB: INSERT INTO MeteredAuditLogs<br/>(RequestJson, ResponseJson, StatusCode)
+                Note over SaaS: Logger l'erreur<br/>mais NE PAS bloquer utilisateur
+            end
+            
+            Note over MktAPI: Azure Marketplace agrège<br/>TOUS les événements reçus<br/>via API pour calculer<br/>la facturation
+            
         end
     else Tracking désactivé ou pas d'abonnement
         Note over Usage: Skip tracking
@@ -326,17 +647,120 @@ VALUES (
 )
 ```
 
-Le JSON stocké :
+Le JSON stocké (RequestJson) :
 ```javascript
 {
-  "dimension": "free" | "pro" | "pro-plus",
+  "resourceId": "subscription-marketplace-guid",
+  "planId": "professional",
+  "dimension": "pro",
   "quantity": 1,
-  "effectiveStartTime": "2025-10-31T10:30:00Z",
-  "resourceId": "hashed-user-id",
-  "planId": "starter",
-  "conversationId": "conversation-id",
-  "timestamp": "2025-10-31T10:30:00Z"
+  "effectiveStartTime": "2025-10-31T10:30:00Z"
 }
+```
+
+Le JSON de réponse (ResponseJson) :
+```javascript
+{
+  "usageEventId": "event-guid-returned-by-marketplace",
+  "status": "Accepted",
+  "messageTime": "2025-10-31T10:30:01Z",
+  "resourceId": "subscription-marketplace-guid",
+  "quantity": 1.0,
+  "dimension": "pro",
+  "effectiveStartTime": "2025-10-31T10:30:00Z",
+  "planId": "professional"
+}
+```
+
+### 5. meteringApiService
+
+**Fichier :** `src/services/meteringApiService.js`
+
+**Responsabilités :**
+- Authentifier avec Azure AD (client credentials flow)
+- Gérer le cache de token d'accès (3600s - 300s buffer)
+- Émettre les événements d'usage vers l'API Azure Marketplace
+- Gérer les erreurs et les retries
+- Valider les données avant envoi
+
+**Configuration :**
+```javascript
+MARKETPLACE_CLIENT_ID         // Client ID (app registration)
+MARKETPLACE_CLIENT_SECRET     // Client Secret
+MARKETPLACE_TENANT_ID         // Tenant ID
+MARKETPLACE_ENABLE_EMISSION   // true/false (feature flag)
+```
+
+**Méthodes principales :**
+
+#### `initialize()`
+Valide la configuration et initialise le service.
+
+#### `getAccessToken()`
+```javascript
+// Acquiert et cache le token Azure AD
+const token = await getAccessToken();
+// → "Bearer eyJ0eXAiOiJKV1QiLCJhbGc..."
+
+// Cache automatique avec expiration
+// Renouvelle uniquement si expiré
+```
+
+#### `emitUsageEvent(subscriptionId, planId, dimension, quantity, effectiveStartTime)`
+```javascript
+// Émet un événement d'usage vers l'API Marketplace
+const result = await meteringService.emitUsageEvent(
+  "12345678-1234-1234-1234-123456789abc",  // subscriptionId (GUID Marketplace)
+  "professional",                           // planId
+  "pro",                                    // dimension
+  1,                                        // quantity
+  "2024-01-15T10:30:00.000Z"               // effectiveStartTime (optionnel, défaut: now)
+);
+
+// Response:
+{
+  usageEventId: "87654321-4321-4321-4321-cba987654321",
+  status: "Accepted",
+  messageTime: "2024-01-15T10:30:01.234Z",
+  resourceId: "12345678-1234-1234-1234-123456789abc",
+  quantity: 1.0,
+  dimension: "pro",
+  effectiveStartTime: "2024-01-15T10:30:00.000Z",
+  planId: "professional"
+}
+```
+
+**Gestion des erreurs :**
+- **401 Unauthorized** : Token expiré ou invalide → Renouveler automatiquement
+- **409 Conflict** : Événement déjà émis cette heure → Logger mais continuer (non-bloquant)
+- **400 Bad Request** : Données invalides → Logger et alerter (erreur de code)
+- **500 Internal Server Error** : Erreur Azure → Retry avec backoff exponentiel (3 tentatives)
+
+**Retry Logic :**
+```javascript
+// Retry automatique (3 tentatives, 1000ms delay)
+try {
+  return await axios.post(url, data, config);
+} catch (error) {
+  if (attempt < maxRetries && isRetryableError(error)) {
+    await sleep(retryDelayMs);
+    return await makeRequest(attempt + 1);
+  }
+  throw error;
+}
+```
+
+**Token Caching :**
+```javascript
+// Cache en mémoire avec vérification d'expiration
+if (this.accessToken && Date.now() < this.tokenExpiry) {
+  return this.accessToken;  // Réutiliser token existant
+}
+
+// Sinon, acquérir nouveau token
+const tokenData = await getTokenFromAzureAD();
+this.accessToken = tokenData.access_token;
+this.tokenExpiry = Date.now() + (tokenData.expires_in - 300) * 1000;  // Buffer 5min
 ```
 
 ## Schéma de base de données
@@ -345,7 +769,7 @@ Le JSON stocké :
 ```sql
 Subscriptions
 ├── Id (int, PK)
-├── AMPSubscriptionId (uniqueidentifier) -- ID Azure Marketplace
+├── AMPSubscriptionId (uniqueidentifier) -- ID Azure Marketplace (resourceId pour API)
 ├── AMPPlanId (varchar) -- Plan ID: starter, professional, pro-plus, development
 ├── AMPQuantity (int) -- Quantité (toujours 1 pour nos plans)
 ├── SubscriptionStatus (varchar) -- Subscribed, Suspended, Unsubscribed, PendingActivation
@@ -362,14 +786,14 @@ Subscriptions
 MeteredAuditLogs
 ├── Id (int, PK)
 ├── SubscriptionId (int, FK → Subscriptions.Id)
-├── RequestJson (nvarchar) -- JSON avec dimension, quantity, effectiveStartTime
-├── ResponseJson (nvarchar) -- Réponse API (optionnel)
-├── StatusCode (int) -- HTTP status (200, 400, etc.)
+├── RequestJson (nvarchar) -- JSON envoyé à l'API Marketplace (événement d'usage)
+├── ResponseJson (nvarchar) -- Réponse de l'API Marketplace (avec usageEventId)
+├── StatusCode (int) -- HTTP status (200 OK, 409 Conflict, 401 Unauthorized, etc.)
 ├── CreatedDate (datetime)
 └── RunBy (nvarchar) -- Service qui a créé l'entrée
 ```
 
-**Note :** Azure Marketplace lit périodiquement `MeteredAuditLogs` pour calculer l'usage facturable.
+**Note IMPORTANTE :** Azure Marketplace **NE LIT JAMAIS** cette table. Elle est utilisée **UNIQUEMENT pour l'audit local**. La facturation Azure est basée sur les événements reçus via l'API POST /api/usageEvent.
 
 ## Feature Flags
 
@@ -463,15 +887,18 @@ SAAS_DEBUG_MODE=false                 # Pas de logs détaillés
 ### Scénario 6 : Utilisateur dépasse son quota (100 messages sur plan Starter)
 1. Utilisateur envoie son 100ème message du mois
 2. `subscriptionCheckMiddleware` vérifie → ✅ Abonnement actif
-3. ❌ PAS de vérification de quota (supprimé)
+3. ❌ PAS de vérification de quota (supprimé - Azure gère le comptage)
 4. `messageHandler` traite le message → ✅ Réponse générée
 5. Réponse envoyée normalement
 6. `usageTrackingMiddleware` enregistre message #100 :
-   - Dimension: `free`
-   - Quantity: `1`
-7. Azure Marketplace calcule : $0 + (100 - 50) × $0.02 = **$1.00**
+   - Appelle `meteringApiService.emitUsageEvent()`
+   - POST vers `https://marketplaceapi.microsoft.com/api/usageEvent`
+   - Body: `{resourceId: guid, planId: "starter", dimension: "free", quantity: 1}`
+   - Azure Marketplace répond 200 OK avec `usageEventId`
+   - INSERT dans `MeteredAuditLogs` (audit local avec RequestJson + ResponseJson)
+7. Azure Marketplace calcule automatiquement : $0 + (100 - 50) × $0.02 = **$1.00**
 8. Utilisateur reçoit sa facture en fin de mois : $1.00
-9. ✅ Pas de blocage, service continu
+9. ✅ Pas de blocage, service continu, facturation automatique par Azure
 
 ## Points clés d'architecture
 
