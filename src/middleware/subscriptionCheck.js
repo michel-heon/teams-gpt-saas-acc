@@ -34,33 +34,43 @@ async function subscriptionCheckMiddleware(context, next) {
   const { send, activity } = context;
   
   try {
+    // Vérifier si le check d'abonnement est activé
+    if (!config.saas.enableSubscriptionCheck) {
+      if (config.saas.debugMode) {
+        console.log('[SubscriptionCheck] Subscription check disabled, skipping...');
+      }
+      context.subscription = null;
+      return await next();
+    }
+    
     // Extraction du TeamsUserId
     const teamsUserId = extractTeamsUserId(activity);
+    const tenantId = activity.conversation?.tenantId || null;
     
     if (config.saas.debugMode) {
-      console.log(`[SubscriptionCheck] Checking subscription for user: ${teamsUserId}`);
+      console.log(`[SubscriptionCheck] Checking subscription for user: ${teamsUserId}, tenant: ${tenantId}`);
     }
     
     // Vérification de l'abonnement actif
-    const subscription = await saasIntegration.getActiveSubscription(teamsUserId);
+    const subscription = await saasIntegration.getActiveSubscription(teamsUserId, tenantId);
     
     if (!subscription) {
       // Pas d'abonnement actif
-      if (config.saas.permissiveMode) {
-        // Mode permissif: continuer avec avertissement
-        console.warn(`[SubscriptionCheck] No subscription for user ${teamsUserId}, but permissive mode enabled`);
+      if (config.saas.permissiveMode || !config.saas.blockNoSubscription) {
+        // Mode permissif ou blocage désactivé: continuer avec avertissement
+        console.warn(`[SubscriptionCheck] No subscription for user ${teamsUserId}, but permissive mode or blocking disabled`);
         context.subscription = null;
         return await next();
       } else {
-        // Mode strict: bloquer l'accès
+        // Mode strict avec blocage activé: bloquer l'accès
         await send(
-          "❌ **No Active Subscription**\n\n" +
-          "You don't have an active subscription to use this AI assistant.\n\n" +
-          "To get started:\n" +
-          "1. Visit [Azure Marketplace](https://azuremarketplace.microsoft.com/)\n" +
-          "2. Search for 'Teams GPT Agent'\n" +
-          "3. Choose a plan that fits your needs\n\n" +
-          "Plans start at €9.99/month with 1,000 messages included."
+          "❌ **Aucun abonnement actif trouvé**\n\n" +
+          "Vous n'avez pas d'abonnement actif pour utiliser cet assistant IA.\n\n" +
+          "Pour commencer:\n" +
+          "1. Visitez [Azure Marketplace](https://azuremarketplace.microsoft.com/)\n" +
+          "2. Recherchez 'Teams GPT Agent'\n" +
+          "3. Choisissez un plan adapté à vos besoins\n\n" +
+          "Les plans commencent à 0€/mois avec 50 messages inclus (plan Starter)."
         );
         return; // Stopper le pipeline
       }
@@ -68,12 +78,18 @@ async function subscriptionCheckMiddleware(context, next) {
     
     // Vérification du statut de l'abonnement
     if (subscription.saasSubscriptionStatus !== 'Subscribed') {
-      await send(
-        `⚠️ **Subscription Status: ${subscription.saasSubscriptionStatus}**\n\n` +
-        "Your subscription is not active. Please check your subscription status in the Azure portal.\n\n" +
-        "If you believe this is an error, please contact support."
-      );
-      return; // Stopper le pipeline
+      if (config.saas.permissiveMode) {
+        console.warn(`[SubscriptionCheck] Subscription status is ${subscription.saasSubscriptionStatus}, but permissive mode enabled`);
+        context.subscription = subscription; // Attacher quand même pour le tracking
+        return await next();
+      } else {
+        await send(
+          `⚠️ **Statut de l'abonnement: ${subscription.saasSubscriptionStatus}**\n\n` +
+          "Votre abonnement n'est pas actif. Veuillez vérifier le statut de votre abonnement dans le portail Azure.\n\n" +
+          "Si vous pensez qu'il s'agit d'une erreur, veuillez contacter le support."
+        );
+        return; // Stopper le pipeline
+      }
     }
     
     // Abonnement valide: attacher au contexte pour les middlewares suivants
@@ -82,7 +98,8 @@ async function subscriptionCheckMiddleware(context, next) {
     if (config.saas.debugMode) {
       console.log(`[SubscriptionCheck] ✅ Valid subscription found:`, {
         subscriptionId: subscription.id,
-        plan: subscription.planId,
+        ampSubscriptionId: subscription.ampSubscriptionId,
+        planId: subscription.planId,
         status: subscription.saasSubscriptionStatus
       });
     }
