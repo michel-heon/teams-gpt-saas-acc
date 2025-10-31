@@ -55,8 +55,21 @@ The following are Microsoft 365 Agents Toolkit specific project files. You can [
 
 To extend the Basic AI Chatbot template with more AI capabilities, explore [Teams AI library V2 documentation](https://aka.ms/m365-agents-toolkit/teams-agent-extend-ai).
 
+## Configuration and deployment modes
+
+This application supports multiple deployment environments with different configurations:
+
+- **🎮 Playground mode** - Quick testing without database (permissive mode)
+- **💻 Local mode** - Full development with Azure SQL database
+- **🏖️ Sandbox mode** - Pre-production testing (strict mode)
+
+For detailed configuration instructions, environment variables, and troubleshooting, see **[CONFIGURATION.md](CONFIGURATION.md)**.
+
 ## Additional information and references
 
+- [Configuration and Deployment Modes](CONFIGURATION.md) - Complete guide for environment setup
+- [Middleware Documentation](src/middleware/README.md) - SaaS integration middleware details
+- [Testing Guide](tests/README.md) - Unit and integration tests
 - [Microsoft 365 Agents Toolkit Documentations](https://docs.microsoft.com/microsoftteams/platform/toolkit/teams-toolkit-fundamentals)
 - [Microsoft 365 Agents Toolkit CLI](https://aka.ms/teamsfx-toolkit-cli)
 - [Microsoft 365 Agents Toolkit Samples](https://github.com/OfficeDev/TeamsFx-Samples)
