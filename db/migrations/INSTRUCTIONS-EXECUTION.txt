@@ -1,0 +1,75 @@
+================================================================================
+INSTRUCTIONS D'EXÉCUTION - Migration Phase 2.3
+================================================================================
+
+📋 ÉTAPES À SUIVRE :
+
+1. Ouvrir Azure Portal Query Editor
+   URL : https://portal.azure.com/#@cotechnoe.net/resource/subscriptions/0f1323ea-0f29-4187-9872-e1cf15d677de/resourceGroups/rg-saasaccel-teams-gpt-02/providers/Microsoft.Sql/servers/sac-02-sql/databases/sac-02AMPSaaSDB/queryEditor
+
+2. S'authentifier avec Azure AD (heon@cotechnoe.net)
+
+3. Copier le contenu du fichier MIGRATION-A-EXECUTER.txt
+   (tout le contenu, de USE [sac-02AMPSaaSDB]; jusqu'à GO final)
+
+4. Coller dans Query Editor
+
+5. Cliquer sur "Run" (bouton en haut)
+
+6. Attendre l'exécution (environ 10-30 secondes)
+
+7. Vérifier les messages de confirmation dans l'output :
+   ✓ Colonne TeamsUserId ajoutée
+   ✓ Colonne TeamsConversationId ajoutée
+   ✓ Colonne TenantId ajoutée
+   ✓ Index IX_Subscriptions_TeamsUserId créé
+   ✓ Index IX_Subscriptions_TenantId créé
+   ✓ Table TeamsMessageLogs créée
+   ✓ Vue vw_SubscriptionUsageStats créée
+   ✓ Procédure sp_LinkTeamsUserToSubscription créée
+   ✓ Version 8.30 enregistrée
+
+8. Si tout est OK, message final devrait afficher :
+   "Migration Phase 2.3 TERMINÉE"
+
+================================================================================
+APRÈS EXÉCUTION RÉUSSIE :
+================================================================================
+
+Signaler à l'agent : "migration terminée"
+
+L'agent lancera alors automatiquement le script de validation (8 tests) pour
+s'assurer que toutes les modifications sont correctes.
+
+================================================================================
+EN CAS D'ERREUR :
+================================================================================
+
+❌ Si une erreur survient :
+   1. Noter le message d'erreur complet
+   2. NE PAS réessayer immédiatement
+   3. Signaler l'erreur à l'agent avec le message exact
+
+Le script est idempotent, il peut être réexécuté sans danger si nécessaire.
+
+================================================================================
+INFORMATIONS TECHNIQUES :
+================================================================================
+
+Serveur     : sac-02-sql.database.windows.net
+Database    : sac-02AMPSaaSDB
+Backup créé : sac-02AMPSaaSDB-backup-20251031
+Taille      : 13,790 caractères (402 lignes SQL)
+Durée       : ~10-30 secondes
+
+Modifications apportées :
+- 3 nouvelles colonnes dans Subscriptions (TeamsUserId, TeamsConversationId, TenantId)
+- 2 nouveaux index de performance
+- 1 nouvelle table TeamsMessageLogs (13 colonnes)
+- 1 nouvelle vue vw_SubscriptionUsageStats
+- 1 nouvelle procédure sp_LinkTeamsUserToSubscription
+- Enregistrement version 8.30 dans DatabaseVersionHistory
+
+Toutes les modifications sont NULL/optionnelles, aucun impact sur données existantes.
+
+================================================================================

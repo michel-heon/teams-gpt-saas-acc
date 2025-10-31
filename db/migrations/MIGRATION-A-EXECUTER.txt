@@ -268,19 +268,19 @@ BEGIN
     
     DECLARE @RowsAffected INT;
     
-    -- Vérifier que l'abonnement existe
+    -- Vérifier que l''abonnement existe
     IF NOT EXISTS (
         SELECT 1 FROM [dbo].[Subscriptions] 
         WHERE [AmpsubscriptionId] = @AmpSubscriptionId
     )
     BEGIN
         DECLARE @ErrorMessage NVARCHAR(255);
-        SET @ErrorMessage = 'Abonnement non trouvé avec AmpSubscriptionId: ' + CONVERT(NVARCHAR(36), @AmpSubscriptionId);
+        SET @ErrorMessage = ''Abonnement non trouvé avec AmpSubscriptionId: '' + CONVERT(NVARCHAR(36), @AmpSubscriptionId);
         RAISERROR(@ErrorMessage, 16, 1);
         RETURN -1;
     END
     
-    -- Mettre à jour l'abonnement avec les informations Teams
+    -- Mettre à jour l''abonnement avec les informations Teams
     UPDATE [dbo].[Subscriptions]
     SET 
         [TeamsUserId] = @TeamsUserId,

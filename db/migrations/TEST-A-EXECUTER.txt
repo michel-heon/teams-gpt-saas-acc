@@ -1,0 +1,369 @@
+-- ============================================================================
+-- Phase 2.3 : Script de test - Validation migration Teams Integration
+-- ============================================================================
+-- Description : Valide que la migration 002-teams-integration.sql s'est correctement exécutée
+-- Version     : 002-test
+-- Date        : 31 octobre 2025
+-- Auteur      : michel-heon
+-- Usage       : Exécuter APRÈS 002-teams-integration.sql
+-- ============================================================================
+-- 
+-- INSTRUCTIONS :
+-- 1. Copier les lignes 11-446 ci-dessous
+-- 2. Ouvrir Azure Portal Query Editor
+-- 3. Coller et exécuter
+-- 4. Vérifier que tous les tests passent (8/8)
+-- ============================================================================
+
+USE [sac-02AMPSaaSDB];
+GO
+
+SET NOCOUNT ON;
+GO
+
+DECLARE @TestsPassed INT = 0;
+DECLARE @TestsFailed INT = 0;
+DECLARE @TestsTotal INT = 0;
+
+PRINT '========================================================================';
+PRINT 'Phase 2.3 : Tests de validation migration';
+PRINT '========================================================================';
+PRINT '';
+PRINT 'Date : ' + CONVERT(VARCHAR(20), GETDATE(), 120);
+PRINT '';
+
+-- ============================================================================
+-- TEST 1 : Vérifier colonnes Subscriptions
+-- ============================================================================
+
+PRINT '------------------------------------------------------------------------';
+PRINT 'TEST 1 : Vérification colonnes Subscriptions';
+PRINT '------------------------------------------------------------------------';
+
+DECLARE @ColonnesPresentes INT;
+
+SELECT @ColonnesPresentes = COUNT(*)
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_NAME = 'Subscriptions'
+AND COLUMN_NAME IN ('TeamsUserId', 'TeamsConversationId', 'TenantId');
+
+SET @TestsTotal = @TestsTotal + 1;
+
+IF @ColonnesPresentes = 3
+BEGIN
+    PRINT '✓ PASSED : 3 colonnes Teams présentes dans Subscriptions';
+    SET @TestsPassed = @TestsPassed + 1;
+END
+ELSE
+BEGIN
+    PRINT '✗ FAILED : Seulement ' + CAST(@ColonnesPresentes AS VARCHAR(2)) + ' colonnes trouvées sur 3';
+    SET @TestsFailed = @TestsFailed + 1;
+END
+
+PRINT '';
+
+-- ============================================================================
+-- TEST 2 : Vérifier types de colonnes
+-- ============================================================================
+
+PRINT '------------------------------------------------------------------------';
+PRINT 'TEST 2 : Vérification types colonnes';
+PRINT '------------------------------------------------------------------------';
+
+DECLARE @TypesCorrects INT = 0;
+
+SELECT @TypesCorrects = COUNT(*)
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_NAME = 'Subscriptions'
+AND (
+    (COLUMN_NAME = 'TeamsUserId' AND DATA_TYPE = 'nvarchar' AND CHARACTER_MAXIMUM_LENGTH = 255)
+    OR (COLUMN_NAME = 'TeamsConversationId' AND DATA_TYPE = 'nvarchar' AND CHARACTER_MAXIMUM_LENGTH = 255)
+    OR (COLUMN_NAME = 'TenantId' AND DATA_TYPE = 'nvarchar' AND CHARACTER_MAXIMUM_LENGTH = 255)
+);
+
+SET @TestsTotal = @TestsTotal + 1;
+
+IF @TypesCorrects = 3
+BEGIN
+    PRINT '✓ PASSED : Types colonnes corrects (NVARCHAR(255))';
+    SET @TestsPassed = @TestsPassed + 1;
+END
+ELSE
+BEGIN
+    PRINT '✗ FAILED : Types colonnes incorrects';
+    SET @TestsFailed = @TestsFailed + 1;
+END
+
+PRINT '';
+
+-- ============================================================================
+-- TEST 3 : Vérifier index Subscriptions
+-- ============================================================================
+
+PRINT '------------------------------------------------------------------------';
+PRINT 'TEST 3 : Vérification index Subscriptions';
+PRINT '------------------------------------------------------------------------';
+
+DECLARE @IndexPresents INT;
+
+SELECT @IndexPresents = COUNT(*)
+FROM sys.indexes
+WHERE object_id = OBJECT_ID('Subscriptions')
+AND name IN ('IX_Subscriptions_TeamsUserId', 'IX_Subscriptions_TenantId');
+
+SET @TestsTotal = @TestsTotal + 1;
+
+IF @IndexPresents = 2
+BEGIN
+    PRINT '✓ PASSED : 2 index Teams présents sur Subscriptions';
+    SET @TestsPassed = @TestsPassed + 1;
+END
+ELSE
+BEGIN
+    PRINT '✗ FAILED : Seulement ' + CAST(@IndexPresents AS VARCHAR(2)) + ' index trouvés sur 2';
+    SET @TestsFailed = @TestsFailed + 1;
+END
+
+PRINT '';
+
+-- ============================================================================
+-- TEST 4 : Vérifier table TeamsMessageLogs
+-- ============================================================================
+
+PRINT '------------------------------------------------------------------------';
+PRINT 'TEST 4 : Vérification table TeamsMessageLogs';
+PRINT '------------------------------------------------------------------------';
+
+SET @TestsTotal = @TestsTotal + 1;
+
+IF EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'TeamsMessageLogs')
+BEGIN
+    -- Vérifier colonnes critiques
+    DECLARE @ColonnesTeamsMessageLogs INT;
+    
+    SELECT @ColonnesTeamsMessageLogs = COUNT(*)
+    FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_NAME = 'TeamsMessageLogs'
+    AND COLUMN_NAME IN ('Id', 'SubscriptionId', 'TeamsUserId', 'ConversationId', 'Dimension', 'Timestamp');
+    
+    IF @ColonnesTeamsMessageLogs = 6
+    BEGIN
+        PRINT '✓ PASSED : Table TeamsMessageLogs créée avec colonnes critiques';
+        SET @TestsPassed = @TestsPassed + 1;
+    END
+    ELSE
+    BEGIN
+        PRINT '✗ FAILED : Table TeamsMessageLogs manque colonnes critiques';
+        SET @TestsFailed = @TestsFailed + 1;
+    END
+END
+ELSE
+BEGIN
+    PRINT '✗ FAILED : Table TeamsMessageLogs non créée';
+    SET @TestsFailed = @TestsFailed + 1;
+END
+
+PRINT '';
+
+-- ============================================================================
+-- TEST 5 : Vérifier vue vw_SubscriptionUsageStats
+-- ============================================================================
+
+PRINT '------------------------------------------------------------------------';
+PRINT 'TEST 5 : Vérification vue vw_SubscriptionUsageStats';
+PRINT '------------------------------------------------------------------------';
+
+SET @TestsTotal = @TestsTotal + 1;
+
+IF EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_NAME = 'vw_SubscriptionUsageStats')
+BEGIN
+    PRINT '✓ PASSED : Vue vw_SubscriptionUsageStats créée';
+    SET @TestsPassed = @TestsPassed + 1;
+END
+ELSE
+BEGIN
+    PRINT '✗ FAILED : Vue vw_SubscriptionUsageStats non créée';
+    SET @TestsFailed = @TestsFailed + 1;
+END
+
+PRINT '';
+
+-- ============================================================================
+-- TEST 6 : Vérifier procédure sp_LinkTeamsUserToSubscription
+-- ============================================================================
+
+PRINT '------------------------------------------------------------------------';
+PRINT 'TEST 6 : Vérification procédure sp_LinkTeamsUserToSubscription';
+PRINT '------------------------------------------------------------------------';
+
+SET @TestsTotal = @TestsTotal + 1;
+
+IF EXISTS (
+    SELECT 1 FROM INFORMATION_SCHEMA.ROUTINES 
+    WHERE ROUTINE_NAME = 'sp_LinkTeamsUserToSubscription' 
+    AND ROUTINE_TYPE = 'PROCEDURE'
+)
+BEGIN
+    PRINT '✓ PASSED : Procédure sp_LinkTeamsUserToSubscription créée';
+    SET @TestsPassed = @TestsPassed + 1;
+END
+ELSE
+BEGIN
+    PRINT '✗ FAILED : Procédure sp_LinkTeamsUserToSubscription non créée';
+    SET @TestsFailed = @TestsFailed + 1;
+END
+
+PRINT '';
+
+-- ============================================================================
+-- TEST 7 : Test fonctionnel procédure (avec cleanup)
+-- ============================================================================
+
+PRINT '------------------------------------------------------------------------';
+PRINT 'TEST 7 : Test fonctionnel sp_LinkTeamsUserToSubscription';
+PRINT '------------------------------------------------------------------------';
+
+SET @TestsTotal = @TestsTotal + 1;
+
+BEGIN TRY
+    -- Créer une subscription de test
+    DECLARE @TestAmpSubscriptionId UNIQUEIDENTIFIER = NEWID();
+    DECLARE @TestTeamsUserId NVARCHAR(255) = 'test-teams-user-' + CONVERT(VARCHAR(36), @TestAmpSubscriptionId);
+    DECLARE @TestTenantId NVARCHAR(255) = 'test-tenant-id';
+    DECLARE @TestConversationId NVARCHAR(255) = 'test-conversation-id';
+    
+    -- Insérer subscription test
+    INSERT INTO [dbo].[Subscriptions] (
+        AmpsubscriptionId,
+        SubscriptionStatus,
+        Ampquantity,
+        AmpplanId,
+        IsActive,
+        CreateDate
+    )
+    VALUES (
+        @TestAmpSubscriptionId,
+        'PendingActivation',
+        1,
+        'test-plan-id',
+        1,
+        GETUTCDATE()
+    );
+    
+    -- Exécuter la procédure
+    EXEC [dbo].[sp_LinkTeamsUserToSubscription]
+        @AmpSubscriptionId = @TestAmpSubscriptionId,
+        @TeamsUserId = @TestTeamsUserId,
+        @TenantId = @TestTenantId,
+        @ConversationId = @TestConversationId;
+    
+    -- Vérifier résultat
+    DECLARE @TeamsUserIdVerif NVARCHAR(255);
+    DECLARE @TenantIdVerif NVARCHAR(255);
+    DECLARE @ConversationIdVerif NVARCHAR(255);
+    
+    SELECT 
+        @TeamsUserIdVerif = TeamsUserId,
+        @TenantIdVerif = TenantId,
+        @ConversationIdVerif = TeamsConversationId
+    FROM [dbo].[Subscriptions]
+    WHERE AmpsubscriptionId = @TestAmpSubscriptionId;
+    
+    -- Cleanup : Supprimer subscription test
+    DELETE FROM [dbo].[Subscriptions]
+    WHERE AmpsubscriptionId = @TestAmpSubscriptionId;
+    
+    -- Valider résultat
+    IF @TeamsUserIdVerif = @TestTeamsUserId 
+        AND @TenantIdVerif = @TestTenantId 
+        AND @ConversationIdVerif = @TestConversationId
+    BEGIN
+        PRINT '✓ PASSED : Procédure sp_LinkTeamsUserToSubscription fonctionne';
+        SET @TestsPassed = @TestsPassed + 1;
+    END
+    ELSE
+    BEGIN
+        PRINT '✗ FAILED : Procédure ne met pas à jour correctement';
+        SET @TestsFailed = @TestsFailed + 1;
+    END
+END TRY
+BEGIN CATCH
+    -- Cleanup en cas d'erreur
+    IF EXISTS (SELECT 1 FROM [dbo].[Subscriptions] WHERE AmpsubscriptionId = @TestAmpSubscriptionId)
+    BEGIN
+        DELETE FROM [dbo].[Subscriptions] WHERE AmpsubscriptionId = @TestAmpSubscriptionId;
+    END
+    
+    PRINT '✗ FAILED : Erreur lors test procédure : ' + ERROR_MESSAGE();
+    SET @TestsFailed = @TestsFailed + 1;
+END CATCH
+
+PRINT '';
+
+-- ============================================================================
+-- TEST 8 : Vérifier version DatabaseVersionHistory
+-- ============================================================================
+
+PRINT '------------------------------------------------------------------------';
+PRINT 'TEST 8 : Vérification version DatabaseVersionHistory';
+PRINT '------------------------------------------------------------------------';
+
+SET @TestsTotal = @TestsTotal + 1;
+
+IF EXISTS (
+    SELECT 1 FROM [dbo].[DatabaseVersionHistory]
+    WHERE VersionNumber = 8.30
+)
+BEGIN
+    PRINT '✓ PASSED : Version 8.30 enregistrée dans DatabaseVersionHistory';
+    SET @TestsPassed = @TestsPassed + 1;
+END
+ELSE
+BEGIN
+    PRINT '✗ FAILED : Version 8.30 non enregistrée';
+    SET @TestsFailed = @TestsFailed + 1;
+END
+
+PRINT '';
+
+-- ============================================================================
+-- RÉSUMÉ DES TESTS
+-- ============================================================================
+
+PRINT '========================================================================';
+PRINT 'RÉSUMÉ DES TESTS';
+PRINT '========================================================================';
+PRINT '';
+PRINT 'Tests passés : ' + CAST(@TestsPassed AS VARCHAR(2)) + '/' + CAST(@TestsTotal AS VARCHAR(2));
+PRINT 'Tests échoués : ' + CAST(@TestsFailed AS VARCHAR(2));
+PRINT '';
+
+IF @TestsFailed = 0
+BEGIN
+    PRINT '========================================================================';
+    PRINT '✓✓✓ TOUS LES TESTS SONT PASSÉS ✓✓✓';
+    PRINT '========================================================================';
+    PRINT '';
+    PRINT 'La migration Phase 2.3 est VALIDÉE avec succès.';
+    PRINT '';
+    PRINT 'Prochaines étapes :';
+    PRINT '  1. Commit des corrections de migration (si nécessaire)';
+    PRINT '  2. Tag release v1.3.0';
+    PRINT '  3. Mettre à jour le code application pour utiliser les nouvelles colonnes';
+    PRINT '  4. Tester l''intégration complète avec Teams';
+END
+ELSE
+BEGIN
+    PRINT '========================================================================';
+    PRINT '✗✗✗ CERTAINS TESTS ONT ÉCHOUÉ ✗✗✗';
+    PRINT '========================================================================';
+    PRINT '';
+    PRINT 'Veuillez corriger les problèmes avant de continuer.';
+    PRINT 'Consultez le fichier db/README.md pour aide au dépannage.';
+END
+
+PRINT '';
+PRINT 'Date fin : ' + CONVERT(VARCHAR(20), GETDATE(), 120);
+PRINT '';
+
+GO
