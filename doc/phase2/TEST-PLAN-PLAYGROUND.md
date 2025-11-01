@@ -149,7 +149,7 @@ getPlaygroundSubscription();
 **Makefile** :
 ```makefile
 get-subscription:
-	@node scripts/get-subscription.js
+    @node scripts/get-subscription.js
 ```
 
 **Usage** :
@@ -224,7 +224,7 @@ getCurrentPlan();
 **Makefile** :
 ```makefile
 get-plan:
-	@node scripts/get-plan.js
+    @node scripts/get-plan.js
 ```
 
 **Usage** :
@@ -322,11 +322,11 @@ setPlan(planId);
 ```makefile
 set-plan:
 ifndef PLAN
-	@echo "❌ Usage: make set-plan PLAN=<plan_name>"
-	@echo "   Plans disponibles: development, starter, professional, pro-plus"
-	@exit 1
+    @echo "❌ Usage: make set-plan PLAN=<plan_name>"
+    @echo "   Plans disponibles: development, starter, professional, pro-plus"
+    @exit 1
 endif
-	@node scripts/set-plan.js $(PLAN)
+    @node scripts/set-plan.js $(PLAN)
 ```
 
 **Usage** :
@@ -399,7 +399,7 @@ listPlans();
 **Makefile** :
 ```makefile
 list-plans:
-	@node scripts/list-plans.js
+    @node scripts/list-plans.js
 ```
 
 **Usage** :
@@ -529,7 +529,7 @@ countMarketplaceMessages();
 **Makefile** :
 ```makefile
 count-marketplace-messages:
-	@node scripts/count-marketplace-messages.js
+    @node scripts/count-marketplace-messages.js
 ```
 
 **Usage** :
@@ -612,7 +612,7 @@ countBufferMessages();
 **Makefile** :
 ```makefile
 count-buffer-messages:
-	@node scripts/count-buffer-messages.js
+    @node scripts/count-buffer-messages.js
 ```
 
 **Usage** :
@@ -701,7 +701,7 @@ showBuffer();
 **Makefile** :
 ```makefile
 show-buffer:
-	@node scripts/show-buffer.js
+    @node scripts/show-buffer.js
 ```
 
 **Usage** :
@@ -836,10 +836,10 @@ showAuditLogs(limit);
 **Makefile** :
 ```makefile
 show-audit-logs:
-	@node scripts/show-audit-logs.js 10
+    @node scripts/show-audit-logs.js 10
 
 show-audit-logs-all:
-	@node scripts/show-audit-logs.js 100
+    @node scripts/show-audit-logs.js 100
 ```
 
 **Usage** :
@@ -887,6 +887,8 @@ make show-audit-logs-all     # 100 derniers
 .PHONY: help get-subscription get-plan set-plan list-plans \
         count-marketplace-messages count-buffer-messages \
         show-buffer show-audit-logs show-audit-logs-all \
+        show-traces show-traces-aggregation show-traces-api show-traces-buffer \
+        show-traces-errors analyze-traces \
         test-scenario-1 test-scenario-2 test-scenario-3 test-scenario-4 \
         start-playground stop-playground restart-playground
 
@@ -901,95 +903,123 @@ RED = \033[0;31m
 NC = \033[0m # No Color
 
 help:
-	@echo "$(GREEN)Test Playground - Commandes disponibles:$(NC)"
-	@echo ""
-	@echo "$(YELLOW)Diagnostic de base:$(NC)"
-	@echo "  make get-subscription           - Afficher la subscription Playground"
-	@echo "  make get-plan                   - Afficher le plan actuel"
-	@echo "  make set-plan PLAN=<name>       - Changer le plan"
-	@echo "  make list-plans                 - Lister tous les plans"
-	@echo ""
-	@echo "$(YELLOW)Monitoring:$(NC)"
-	@echo "  make count-marketplace-messages - Compter messages Marketplace API"
-	@echo "  make count-buffer-messages      - Compter messages dans buffer"
-	@echo "  make show-buffer                - Afficher contenu buffer"
-	@echo "  make show-audit-logs            - Afficher 10 derniers audit logs"
-	@echo "  make show-audit-logs-all        - Afficher 100 derniers audit logs"
-	@echo ""
-	@echo "$(YELLOW)Scénarios de test:$(NC)"
-	@echo "  make test-scenario-1            - Test message unique"
-	@echo "  make test-scenario-2            - Test burst messages"
-	@echo "  make test-scenario-3            - Test émission horaire"
-	@echo "  make test-scenario-4            - Test changement de plan"
-	@echo ""
-	@echo "$(YELLOW)Contrôle du Playground:$(NC)"
-	@echo "  make start-playground           - Démarrer le bot Playground"
-	@echo "  make stop-playground            - Arrêter le bot Playground"
-	@echo "  make restart-playground         - Redémarrer le bot Playground"
+    @echo "$(GREEN)Test Playground - Commandes disponibles:$(NC)"
+    @echo ""
+    @echo "$(YELLOW)Diagnostic de base:$(NC)"
+    @echo "  make get-subscription           - Afficher la subscription Playground"
+    @echo "  make get-plan                   - Afficher le plan actuel"
+    @echo "  make set-plan PLAN=<name>       - Changer le plan"
+    @echo "  make list-plans                 - Lister tous les plans"
+    @echo ""
+    @echo "$(YELLOW)Monitoring:$(NC)"
+    @echo "  make count-marketplace-messages - Compter messages Marketplace API"
+    @echo "  make count-buffer-messages      - Compter messages dans buffer"
+    @echo "  make show-buffer                - Afficher contenu buffer"
+    @echo "  make show-audit-logs            - Afficher 10 derniers audit logs"
+    @echo "  make show-audit-logs-all        - Afficher 100 derniers audit logs"
+    @echo ""
+    @echo "$(YELLOW)Analyse des traces:$(NC)"
+    @echo "  make show-traces                - Afficher traces en temps réel (toutes)"
+    @echo "  make show-traces-aggregation    - Traces d'agrégation uniquement"
+    @echo "  make show-traces-api            - Traces API uniquement"
+    @echo "  make show-traces-buffer         - Traces buffer uniquement"
+    @echo "  make show-traces-errors         - Erreurs uniquement"
+    @echo "  make analyze-traces             - Analyse statistique des traces"
+    @echo ""
+    @echo "$(YELLOW)Scénarios de test:$(NC)"
+    @echo "  make test-scenario-1            - Test message unique"
+    @echo "  make test-scenario-2            - Test burst messages"
+    @echo "  make test-scenario-3            - Test émission horaire"
+    @echo "  make test-scenario-4            - Test changement de plan"
+    @echo ""
+    @echo "$(YELLOW)Contrôle du Playground:$(NC)"
+    @echo "  make start-playground           - Démarrer le bot Playground"
+    @echo "  make stop-playground            - Arrêter le bot Playground"
+    @echo "  make restart-playground         - Redémarrer le bot Playground"
 
 # Diagnostic de base
 get-subscription:
-	@$(NODE) $(SCRIPTS_DIR)/get-subscription.js
+    @$(NODE) $(SCRIPTS_DIR)/get-subscription.js
 
 get-plan:
-	@$(NODE) $(SCRIPTS_DIR)/get-plan.js
+    @$(NODE) $(SCRIPTS_DIR)/get-plan.js
 
 set-plan:
 ifndef PLAN
-	@echo "$(RED)❌ Usage: make set-plan PLAN=<plan_name>$(NC)"
-	@echo "   Plans disponibles: development, starter, professional, pro-plus"
-	@exit 1
+    @echo "$(RED)❌ Usage: make set-plan PLAN=<plan_name>$(NC)"
+    @echo "   Plans disponibles: development, starter, professional, pro-plus"
+    @exit 1
 endif
-	@$(NODE) $(SCRIPTS_DIR)/set-plan.js $(PLAN)
+    @$(NODE) $(SCRIPTS_DIR)/set-plan.js $(PLAN)
 
 list-plans:
-	@$(NODE) $(SCRIPTS_DIR)/list-plans.js
+    @$(NODE) $(SCRIPTS_DIR)/list-plans.js
 
 # Monitoring
 count-marketplace-messages:
-	@$(NODE) $(SCRIPTS_DIR)/count-marketplace-messages.js
+    @$(NODE) $(SCRIPTS_DIR)/count-marketplace-messages.js
 
 count-buffer-messages:
-	@$(NODE) $(SCRIPTS_DIR)/count-buffer-messages.js
+    @$(NODE) $(SCRIPTS_DIR)/count-buffer-messages.js
 
 show-buffer:
-	@$(NODE) $(SCRIPTS_DIR)/show-buffer.js
+    @$(NODE) $(SCRIPTS_DIR)/show-buffer.js
 
 show-audit-logs:
-	@$(NODE) $(SCRIPTS_DIR)/show-audit-logs.js 10
+    @$(NODE) $(SCRIPTS_DIR)/show-audit-logs.js 10
 
 show-audit-logs-all:
-	@$(NODE) $(SCRIPTS_DIR)/show-audit-logs.js 100
+    @$(NODE) $(SCRIPTS_DIR)/show-audit-logs.js 100
+
+# Analyse des traces
+show-traces:
+    @tail -f logs/playground-traces.log | grep --color=auto -E 'error|ERROR|warn|WARN|'
+
+show-traces-aggregation:
+    @tail -f logs/playground-traces.log | grep "AGGREGATION"
+
+show-traces-api:
+    @tail -f logs/playground-traces.log | grep "API"
+
+show-traces-buffer:
+    @tail -f logs/playground-traces.log | grep "BUFFER"
+
+show-traces-errors:
+    @tail -f logs/playground-traces.log | grep -E "error|ERROR"
+
+analyze-traces:
+    @echo "$(GREEN)📊 Analyse des traces...$(NC)"
+    @$(NODE) $(SCRIPTS_DIR)/analyze-traces.js
 
 # Scénarios de test (ouvre le document markdown)
 test-scenario-1:
-	@echo "$(GREEN)📖 Ouvrir le scénario 1: Message unique$(NC)"
-	@cat test-scenarios/scenario-1-single-message.md
+    @echo "$(GREEN)📖 Ouvrir le scénario 1: Message unique$(NC)"
+    @cat test-scenarios/scenario-1-single-message.md
 
 test-scenario-2:
-	@echo "$(GREEN)📖 Ouvrir le scénario 2: Burst messages$(NC)"
-	@cat test-scenarios/scenario-2-burst-messages.md
+    @echo "$(GREEN)📖 Ouvrir le scénario 2: Burst messages$(NC)"
+    @cat test-scenarios/scenario-2-burst-messages.md
 
 test-scenario-3:
-	@echo "$(GREEN)📖 Ouvrir le scénario 3: Émission horaire$(NC)"
-	@cat test-scenarios/scenario-3-hourly-emission.md
+    @echo "$(GREEN)📖 Ouvrir le scénario 3: Émission horaire$(NC)"
+    @cat test-scenarios/scenario-3-hourly-emission.md
 
 test-scenario-4:
-	@echo "$(GREEN)📖 Ouvrir le scénario 4: Changement de plan$(NC)"
-	@cat test-scenarios/scenario-4-plan-change.md
+    @echo "$(GREEN)📖 Ouvrir le scénario 4: Changement de plan$(NC)"
+    @cat test-scenarios/scenario-4-plan-change.md
 
 # Contrôle du Playground
 start-playground:
-	@echo "$(GREEN)🚀 Démarrage du Playground...$(NC)"
-	@npm run dev:teamsfx:testtool &
+    @echo "$(GREEN)🚀 Démarrage du Playground...$(NC)"
+    @npm run dev:teamsfx:testtool &
 
 stop-playground:
-	@echo "$(YELLOW)🛑 Arrêt du Playground...$(NC)"
-	@pkill -f "dev:teamsfx:testtool" || true
+    @echo "$(YELLOW)🛑 Arrêt du Playground...$(NC)"
+    @pkill -f "dev:teamsfx:testtool" || true
 
 restart-playground: stop-playground
-	@sleep 2
-	@make start-playground
+    @sleep 2
+    @make start-playground
 ```
 
 ---
@@ -1236,9 +1266,801 @@ MARKETPLACE_CLIENT_SECRET=<azure-client-secret>
 AGGREGATION_ENABLED=true
 AGGREGATION_CRON_SCHEDULE=0 * * * *
 
-# Logging
+# Logging et Traces
 LOG_LEVEL=debug
+TRACE_ENABLED=true
+TRACE_LEVEL=verbose
+TRACE_OUTPUT=console,file
+TRACE_FILE_PATH=./logs/playground-traces.log
+TRACE_MAX_FILE_SIZE=10485760
+TRACE_AGGREGATION=true
+TRACE_API_CALLS=true
+TRACE_BUFFER_OPS=true
+TRACE_SQL_QUERIES=false
 ```
+
+---
+
+## 📊 Gestion et Analyse des Traces d'Exécution
+
+### Vue d'ensemble
+
+Le système de traçage permet de suivre en détail l'exécution du code en environnement Playground, facilitant le diagnostic des problèmes et l'analyse du comportement du système.
+
+### Configuration des niveaux de trace
+
+Les niveaux de trace sont configurables via le fichier `.env.playground` :
+
+| Niveau | Description | Cas d'usage |
+|--------|-------------|-------------|
+| `error` | Erreurs critiques uniquement | Production |
+| `warn` | Erreurs + avertissements | Production |
+| `info` | Informations importantes | Tests E2E |
+| `debug` | Informations détaillées | Tests interactifs |
+| `verbose` | Tous les détails + données | Debugging approfondi |
+| `trace` | Chaque appel de fonction | Debugging très détaillé |
+
+### Variables d'environnement pour le traçage
+
+```bash
+# Activation globale du traçage
+TRACE_ENABLED=true                    # true/false
+
+# Niveau de détail
+TRACE_LEVEL=verbose                   # error|warn|info|debug|verbose|trace
+
+# Destination des traces
+TRACE_OUTPUT=console,file             # console|file|both (séparés par virgule)
+TRACE_FILE_PATH=./logs/playground-traces.log
+TRACE_MAX_FILE_SIZE=10485760         # 10 MB en bytes
+TRACE_MAX_FILES=5                     # Nombre de fichiers de rotation
+
+# Traces sélectives par composant
+TRACE_AGGREGATION=true                # Traces du service d'agrégation
+TRACE_API_CALLS=true                  # Traces des appels API Marketplace
+TRACE_BUFFER_OPS=true                 # Traces des opérations sur le buffer
+TRACE_SQL_QUERIES=false               # Traces des requêtes SQL (attention: verbeux!)
+TRACE_BOT_MESSAGES=true               # Traces des messages bot
+TRACE_CRON_JOBS=true                  # Traces des jobs cron
+
+# Format des traces
+TRACE_FORMAT=json                     # json|text|pretty
+TRACE_TIMESTAMP=iso                   # iso|unix|relative
+TRACE_INCLUDE_STACK=false             # Inclure stack trace pour debug/verbose
+```
+
+### Implémentation du système de traçage
+
+#### 1. Service de traçage centralisé
+
+**Fichier** : `src/services/traceService.js`
+
+```javascript
+// src/services/traceService.js
+const fs = require('fs');
+const path = require('path');
+const { createLogger, format, transports } = require('winston');
+const DailyRotateFile = require('winston-daily-rotate-file');
+
+class TraceService {
+    constructor() {
+        this.enabled = process.env.TRACE_ENABLED === 'true';
+        this.level = process.env.TRACE_LEVEL || 'info';
+        this.output = (process.env.TRACE_OUTPUT || 'console').split(',');
+        this.format = process.env.TRACE_FORMAT || 'pretty';
+        
+        // Configuration des composants à tracer
+        this.components = {
+            aggregation: process.env.TRACE_AGGREGATION === 'true',
+            apiCalls: process.env.TRACE_API_CALLS === 'true',
+            bufferOps: process.env.TRACE_BUFFER_OPS === 'true',
+            sqlQueries: process.env.TRACE_SQL_QUERIES === 'true',
+            botMessages: process.env.TRACE_BOT_MESSAGES === 'true',
+            cronJobs: process.env.TRACE_CRON_JOBS === 'true'
+        };
+        
+        this.logger = this._createLogger();
+    }
+    
+    _createLogger() {
+        const logFormat = this._getLogFormat();
+        const logTransports = this._getLogTransports();
+        
+        return createLogger({
+            level: this.level,
+            format: logFormat,
+            transports: logTransports,
+            silent: !this.enabled
+        });
+    }
+    
+    _getLogFormat() {
+        const timestamp = format.timestamp({
+            format: process.env.TRACE_TIMESTAMP === 'unix' 
+                ? 'X' 
+                : 'YYYY-MM-DD HH:mm:ss.SSS'
+        });
+        
+        if (this.format === 'json') {
+            return format.combine(
+                timestamp,
+                format.errors({ stack: process.env.TRACE_INCLUDE_STACK === 'true' }),
+                format.json()
+            );
+        } else if (this.format === 'pretty') {
+            return format.combine(
+                timestamp,
+                format.colorize(),
+                format.printf(({ timestamp, level, message, component, ...metadata }) => {
+                    let msg = `${timestamp} [${level}]`;
+                    if (component) msg += ` [${component}]`;
+                    msg += `: ${message}`;
+                    
+                    if (Object.keys(metadata).length > 0) {
+                        msg += '\n' + JSON.stringify(metadata, null, 2);
+                    }
+                    
+                    return msg;
+                })
+            );
+        } else {
+            return format.combine(
+                timestamp,
+                format.simple()
+            );
+        }
+    }
+    
+    _getLogTransports() {
+        const transportsList = [];
+        
+        if (this.output.includes('console')) {
+            transportsList.push(new transports.Console({
+                level: this.level
+            }));
+        }
+        
+        if (this.output.includes('file')) {
+            const logDir = path.dirname(process.env.TRACE_FILE_PATH || './logs/traces.log');
+            if (!fs.existsSync(logDir)) {
+                fs.mkdirSync(logDir, { recursive: true });
+            }
+            
+            transportsList.push(new DailyRotateFile({
+                filename: process.env.TRACE_FILE_PATH || './logs/playground-%DATE%.log',
+                datePattern: 'YYYY-MM-DD',
+                maxSize: process.env.TRACE_MAX_FILE_SIZE || '10m',
+                maxFiles: process.env.TRACE_MAX_FILES || '5d',
+                level: this.level
+            }));
+        }
+        
+        return transportsList;
+    }
+    
+    // Méthodes de traçage par composant
+    
+    traceAggregation(level, message, metadata = {}) {
+        if (!this.components.aggregation) return;
+        this._log(level, 'AGGREGATION', message, metadata);
+    }
+    
+    traceApiCall(level, message, metadata = {}) {
+        if (!this.components.apiCalls) return;
+        this._log(level, 'API', message, metadata);
+    }
+    
+    traceBufferOp(level, message, metadata = {}) {
+        if (!this.components.bufferOps) return;
+        this._log(level, 'BUFFER', message, metadata);
+    }
+    
+    traceSqlQuery(level, message, metadata = {}) {
+        if (!this.components.sqlQueries) return;
+        this._log(level, 'SQL', message, metadata);
+    }
+    
+    traceBotMessage(level, message, metadata = {}) {
+        if (!this.components.botMessages) return;
+        this._log(level, 'BOT', message, metadata);
+    }
+    
+    traceCronJob(level, message, metadata = {}) {
+        if (!this.components.cronJobs) return;
+        this._log(level, 'CRON', message, metadata);
+    }
+    
+    _log(level, component, message, metadata) {
+        this.logger.log({
+            level,
+            component,
+            message,
+            ...metadata
+        });
+    }
+    
+    // Méthodes de niveau direct
+    
+    error(component, message, metadata = {}) {
+        this._log('error', component, message, metadata);
+    }
+    
+    warn(component, message, metadata = {}) {
+        this._log('warn', component, message, metadata);
+    }
+    
+    info(component, message, metadata = {}) {
+        this._log('info', component, message, metadata);
+    }
+    
+    debug(component, message, metadata = {}) {
+        this._log('debug', component, message, metadata);
+    }
+    
+    verbose(component, message, metadata = {}) {
+        this._log('verbose', component, message, metadata);
+    }
+    
+    // Utilitaires de mesure de performance
+    
+    startTimer(component, operation) {
+        const startTime = Date.now();
+        return {
+            end: (metadata = {}) => {
+                const duration = Date.now() - startTime;
+                this._log('debug', component, `${operation} completed`, {
+                    duration: `${duration}ms`,
+                    ...metadata
+                });
+                return duration;
+            }
+        };
+    }
+}
+
+// Singleton
+let instance = null;
+
+function getInstance() {
+    if (!instance) {
+        instance = new TraceService();
+    }
+    return instance;
+}
+
+module.exports = { getInstance };
+```
+
+#### 2. Intégration dans UsageAggregationService
+
+**Modification** : `src/services/usageAggregationService.js`
+
+```javascript
+// Ajouter en haut du fichier
+const traceService = require('./traceService').getInstance();
+
+class UsageAggregationService {
+    // ... code existant ...
+    
+    async trackUsage(subscriptionId, planId, dimension, quantity = 1) {
+        const timer = traceService.startTimer('AGGREGATION', 'trackUsage');
+        
+        traceService.traceAggregation('verbose', 'Tracking usage', {
+            subscriptionId,
+            planId,
+            dimension,
+            quantity
+        });
+        
+        try {
+            const key = this._getBufferKey(subscriptionId, planId, dimension);
+            
+            if (this.buffer.has(key)) {
+                const entry = this.buffer.get(key);
+                entry.quantity += quantity;
+                
+                traceService.traceBufferOp('debug', 'Updated existing buffer entry', {
+                    key,
+                    newQuantity: entry.quantity,
+                    added: quantity
+                });
+            } else {
+                const hourTimestamp = this._getHourTimestamp();
+                const entry = {
+                    key,
+                    subscriptionId,
+                    planId,
+                    dimension,
+                    quantity,
+                    hour: hourTimestamp,
+                    firstSeen: Date.now()
+                };
+                
+                this.buffer.set(key, entry);
+                
+                traceService.traceBufferOp('info', 'Created new buffer entry', {
+                    key,
+                    quantity,
+                    hour: new Date(hourTimestamp).toISOString()
+                });
+            }
+            
+            await this.saveBuffer();
+            
+            const duration = timer.end({ bufferSize: this.buffer.size });
+            
+            traceService.traceAggregation('debug', 'Usage tracked successfully', {
+                duration: `${duration}ms`,
+                bufferSize: this.buffer.size
+            });
+            
+        } catch (error) {
+            timer.end({ error: true });
+            traceService.error('AGGREGATION', 'Failed to track usage', {
+                error: error.message,
+                stack: error.stack,
+                subscriptionId,
+                planId,
+                dimension
+            });
+            throw error;
+        }
+    }
+    
+    async emitAggregatedUsage() {
+        const timer = traceService.startTimer('AGGREGATION', 'emitAggregatedUsage');
+        
+        traceService.traceCronJob('info', 'Starting hourly emission', {
+            bufferSize: this.buffer.size,
+            timestamp: new Date().toISOString()
+        });
+        
+        try {
+            const now = Date.now();
+            const completedEntries = [];
+            
+            for (const [key, entry] of this.buffer.entries()) {
+                const hourEnd = entry.hour + 3600000;
+                
+                if (now >= hourEnd) {
+                    completedEntries.push(entry);
+                    
+                    traceService.traceAggregation('debug', 'Entry ready for emission', {
+                        key,
+                        quantity: entry.quantity,
+                        hourStart: new Date(entry.hour).toISOString(),
+                        hourEnd: new Date(hourEnd).toISOString()
+                    });
+                }
+            }
+            
+            traceService.traceCronJob('info', `Found ${completedEntries.length} entries to emit`);
+            
+            for (const entry of completedEntries) {
+                try {
+                    const emitTimer = traceService.startTimer('API', 'emitUsageEvent');
+                    
+                    await meteringApiService.emitUsageEvent(
+                        entry.subscriptionId,
+                        entry.planId,
+                        entry.dimension,
+                        entry.quantity,
+                        new Date(entry.hour).toISOString()
+                    );
+                    
+                    this.buffer.delete(entry.key);
+                    
+                    const emitDuration = emitTimer.end();
+                    
+                    traceService.traceApiCall('info', 'Usage event emitted successfully', {
+                        key: entry.key,
+                        quantity: entry.quantity,
+                        duration: `${emitDuration}ms`
+                    });
+                    
+                } catch (error) {
+                    traceService.error('API', 'Failed to emit usage event', {
+                        error: error.message,
+                        key: entry.key,
+                        quantity: entry.quantity,
+                        retryable: error.statusCode >= 500
+                    });
+                }
+            }
+            
+            await this.saveBuffer();
+            
+            const duration = timer.end({
+                emittedCount: completedEntries.length,
+                remainingInBuffer: this.buffer.size
+            });
+            
+            traceService.traceCronJob('info', 'Hourly emission completed', {
+                duration: `${duration}ms`,
+                emitted: completedEntries.length,
+                remaining: this.buffer.size
+            });
+            
+        } catch (error) {
+            timer.end({ error: true });
+            traceService.error('AGGREGATION', 'Hourly emission failed', {
+                error: error.message,
+                stack: error.stack
+            });
+        }
+    }
+}
+```
+
+#### 3. Intégration dans meteringApiService
+
+**Modification** : `src/services/meteringApiService.js`
+
+```javascript
+const traceService = require('./traceService').getInstance();
+
+async function emitUsageEvent(subscriptionId, planId, dimension, quantity, effectiveStartTime) {
+    const timer = traceService.startTimer('API', 'emitUsageEvent');
+    
+    traceService.traceApiCall('verbose', 'Preparing API request', {
+        subscriptionId,
+        planId,
+        dimension,
+        quantity,
+        effectiveStartTime
+    });
+    
+    try {
+        const token = await getMarketplaceToken();
+        const requestBody = {
+            resourceId: subscriptionId,
+            quantity,
+            dimension: dimensionMap[planId] || dimension,
+            effectiveStartTime,
+            planId
+        };
+        
+        traceService.traceApiCall('debug', 'Sending request to Marketplace API', {
+            endpoint: MARKETPLACE_API_URL,
+            body: requestBody
+        });
+        
+        const response = await axios.post(MARKETPLACE_API_URL, requestBody, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        timer.end({ statusCode: response.status });
+        
+        traceService.traceApiCall('info', 'API request successful', {
+            statusCode: response.status,
+            usageEventId: response.data.usageEventId,
+            status: response.data.status
+        });
+        
+        await auditLog(subscriptionId, requestBody, response.data, response.status);
+        
+        return response.data;
+        
+    } catch (error) {
+        timer.end({ error: true, statusCode: error.response?.status });
+        
+        traceService.error('API', 'API request failed', {
+            error: error.message,
+            statusCode: error.response?.status,
+            responseData: error.response?.data,
+            subscriptionId,
+            quantity
+        });
+        
+        if (error.response) {
+            await auditLog(
+                subscriptionId,
+                { quantity, dimension, effectiveStartTime },
+                error.response.data,
+                error.response.status
+            );
+        }
+        
+        throw error;
+    }
+}
+```
+
+### Commandes d'analyse des traces
+
+#### 1. `make show-traces` - Afficher traces en temps réel
+
+**Ajout au Makefile** :
+
+```makefile
+# Analyse des traces
+show-traces:
+    @tail -f logs/playground-traces.log | grep --color=auto -E 'error|ERROR|warn|WARN|'
+
+show-traces-aggregation:
+    @tail -f logs/playground-traces.log | grep "AGGREGATION"
+
+show-traces-api:
+    @tail -f logs/playground-traces.log | grep "API"
+
+show-traces-buffer:
+    @tail -f logs/playground-traces.log | grep "BUFFER"
+
+show-traces-errors:
+    @tail -f logs/playground-traces.log | grep -E "error|ERROR"
+
+analyze-traces:
+    @echo "$(GREEN)📊 Analyse des traces...$(NC)"
+    @$(NODE) $(SCRIPTS_DIR)/analyze-traces.js
+```
+
+#### 2. Script d'analyse des traces
+
+**Fichier** : `scripts/analyze-traces.js`
+
+```javascript
+// scripts/analyze-traces.js
+const fs = require('fs');
+const path = require('path');
+
+function analyzeTraces() {
+    const logFile = process.env.TRACE_FILE_PATH || './logs/playground-traces.log';
+    
+    if (!fs.existsSync(logFile)) {
+        console.log('ℹ️  Aucun fichier de traces trouvé');
+        return;
+    }
+    
+    const content = fs.readFileSync(logFile, 'utf8');
+    const lines = content.split('\n').filter(l => l.trim());
+    
+    // Statistiques
+    const stats = {
+        total: lines.length,
+        byLevel: {},
+        byComponent: {},
+        errors: [],
+        apiCalls: { success: 0, failed: 0, totalDuration: 0 },
+        aggregation: { tracked: 0, emitted: 0 }
+    };
+    
+    lines.forEach(line => {
+        try {
+            const log = JSON.parse(line);
+            
+            // Par niveau
+            stats.byLevel[log.level] = (stats.byLevel[log.level] || 0) + 1;
+            
+            // Par composant
+            if (log.component) {
+                stats.byComponent[log.component] = (stats.byComponent[log.component] || 0) + 1;
+            }
+            
+            // Erreurs
+            if (log.level === 'error') {
+                stats.errors.push({
+                    timestamp: log.timestamp,
+                    component: log.component,
+                    message: log.message
+                });
+            }
+            
+            // API calls
+            if (log.component === 'API') {
+                if (log.message.includes('successful')) {
+                    stats.apiCalls.success++;
+                } else if (log.message.includes('failed')) {
+                    stats.apiCalls.failed++;
+                }
+                
+                if (log.duration) {
+                    const ms = parseInt(log.duration);
+                    stats.apiCalls.totalDuration += ms;
+                }
+            }
+            
+            // Agrégation
+            if (log.component === 'AGGREGATION') {
+                if (log.message.includes('Usage tracked')) {
+                    stats.aggregation.tracked++;
+                } else if (log.message.includes('emitted successfully')) {
+                    stats.aggregation.emitted++;
+                }
+            }
+            
+        } catch (e) {
+            // Ligne non-JSON, ignorer
+        }
+    });
+    
+    // Affichage
+    console.log('📊 Analyse des traces Playground\n');
+    console.log(`Total de lignes: ${stats.total}`);
+    console.log('');
+    
+    console.log('Par niveau:');
+    Object.entries(stats.byLevel).forEach(([level, count]) => {
+        console.log(`  ${level}: ${count}`);
+    });
+    console.log('');
+    
+    console.log('Par composant:');
+    Object.entries(stats.byComponent).forEach(([comp, count]) => {
+        console.log(`  ${comp}: ${count}`);
+    });
+    console.log('');
+    
+    console.log('📞 Appels API:');
+    console.log(`  Succès: ${stats.apiCalls.success}`);
+    console.log(`  Échecs: ${stats.apiCalls.failed}`);
+    if (stats.apiCalls.success > 0) {
+        const avgDuration = stats.apiCalls.totalDuration / stats.apiCalls.success;
+        console.log(`  Durée moyenne: ${avgDuration.toFixed(2)}ms`);
+    }
+    console.log('');
+    
+    console.log('📦 Agrégation:');
+    console.log(`  Messages trackés: ${stats.aggregation.tracked}`);
+    console.log(`  Messages émis: ${stats.aggregation.emitted}`);
+    console.log('');
+    
+    if (stats.errors.length > 0) {
+        console.log('❌ Erreurs récentes:');
+        stats.errors.slice(-5).forEach(err => {
+            console.log(`  [${err.timestamp}] ${err.component}: ${err.message}`);
+        });
+    }
+}
+
+analyzeTraces();
+```
+
+### Exemple de configuration complète
+
+**Fichier** : `.env.playground` (version complète avec traces)
+
+```bash
+# Configuration Playground avec traçage avancé
+NODE_ENV=playground
+
+# Bot Framework
+MicrosoftAppId=<playground-app-id>
+MicrosoftAppPassword=<playground-app-password>
+BOT_DOMAIN=<tunnel-domain>
+
+# SaaS Database
+SQL_SERVER=<saas-database-server>
+SQL_DATABASE=<saas-database-name>
+SQL_USER=<saas-database-user>
+SQL_PASSWORD=<saas-database-password>
+
+# Marketplace API
+MARKETPLACE_METERING_ENABLED=true
+MARKETPLACE_TEST_MODE=true
+MARKETPLACE_TENANT_ID=<azure-tenant-id>
+MARKETPLACE_CLIENT_ID=<azure-client-id>
+MARKETPLACE_CLIENT_SECRET=<azure-client-secret>
+
+# Aggregation
+AGGREGATION_ENABLED=true
+AGGREGATION_CRON_SCHEDULE=0 * * * *
+
+# Logging standard
+LOG_LEVEL=debug
+
+# ===== SYSTÈME DE TRAÇAGE =====
+
+# Activation et niveau global
+TRACE_ENABLED=true
+TRACE_LEVEL=verbose          # error|warn|info|debug|verbose|trace
+TRACE_OUTPUT=console,file
+TRACE_FORMAT=pretty          # json|text|pretty
+
+# Fichiers de traces
+TRACE_FILE_PATH=./logs/playground-traces.log
+TRACE_MAX_FILE_SIZE=10485760  # 10 MB
+TRACE_MAX_FILES=5
+TRACE_TIMESTAMP=iso          # iso|unix|relative
+TRACE_INCLUDE_STACK=false
+
+# Traces par composant (activer sélectivement)
+TRACE_AGGREGATION=true       # Service d'agrégation
+TRACE_API_CALLS=true         # Appels Marketplace API
+TRACE_BUFFER_OPS=true        # Opérations sur le buffer
+TRACE_SQL_QUERIES=false      # Requêtes SQL (très verbeux!)
+TRACE_BOT_MESSAGES=true      # Messages bot Teams
+TRACE_CRON_JOBS=true         # Jobs cron
+```
+
+### Utilisation des traces en Playground
+
+#### Workflow typique de diagnostic
+
+```bash
+# 1. Démarrer le bot avec traces activées
+make start-playground
+
+# 2. Observer les traces en temps réel
+make show-traces
+
+# 3. Envoyer des messages de test dans Teams
+# ...
+
+# 4. Analyser les traces d'agrégation
+make show-traces-aggregation
+
+# 5. Vérifier les appels API
+make show-traces-api
+
+# 6. Analyser les statistiques
+make analyze-traces
+
+# 7. En cas d'erreur, consulter les erreurs uniquement
+make show-traces-errors
+```
+
+#### Exemples de sorties de traces
+
+**Niveau verbose - Agrégation** :
+```
+2024-11-01 14:23:45.123 [verbose] [AGGREGATION]: Tracking usage
+{
+  "subscriptionId": "abc-123",
+  "planId": "development",
+  "dimension": "dev-test",
+  "quantity": 1
+}
+
+2024-11-01 14:23:45.134 [debug] [BUFFER]: Updated existing buffer entry
+{
+  "key": "abc-123:development:dev-test:1730469600000",
+  "newQuantity": 15,
+  "added": 1
+}
+
+2024-11-01 14:23:45.142 [debug] [AGGREGATION]: Usage tracked successfully
+{
+  "duration": "19ms",
+  "bufferSize": 2
+}
+```
+
+**Niveau info - Émission horaire** :
+```
+2024-11-01 15:00:00.001 [info] [CRON]: Starting hourly emission
+{
+  "bufferSize": 2,
+  "timestamp": "2024-11-01T15:00:00.001Z"
+}
+
+2024-11-01 15:00:00.045 [info] [CRON]: Found 2 entries to emit
+
+2024-11-01 15:00:00.234 [info] [API]: Usage event emitted successfully
+{
+  "key": "abc-123:development:dev-test:1730469600000",
+  "quantity": 15,
+  "duration": "189ms"
+}
+
+2024-11-01 15:00:00.456 [info] [CRON]: Hourly emission completed
+{
+  "duration": "455ms",
+  "emitted": 2,
+  "remaining": 0
+}
+```
+
+### Avantages du système de traçage
+
+✅ **Diagnostic précis** : Identification rapide des problèmes  
+✅ **Performance** : Mesure des temps d'exécution  
+✅ **Sélectif** : Activation par composant  
+✅ **Configurable** : Contrôle via variables d'environnement  
+✅ **Analyse** : Scripts d'analyse automatisés  
+✅ **Production-ready** : Rotation des fichiers, niveaux adaptés
 
 ---
 
