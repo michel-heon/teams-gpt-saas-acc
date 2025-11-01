@@ -12,6 +12,20 @@ const config = require("../config");
 const { subscriptionCheckMiddleware } = require('../middleware/subscriptionCheck');
 const { usageTrackingMiddleware } = require('../middleware/usageTracking');
 
+// Import usage aggregation service
+const usageAggregationService = require('../services/usageAggregationService');
+
+// Initialize usage aggregation service at startup
+(async () => {
+  try {
+    const aggregationService = usageAggregationService.getInstance();
+    await aggregationService.initialize();
+    console.log('[App] Usage aggregation service initialized');
+  } catch (error) {
+    console.error('[App] Failed to initialize usage aggregation service:', error);
+  }
+})();
+
 // Create storage for conversation history
 const storage = new LocalStorage();
 

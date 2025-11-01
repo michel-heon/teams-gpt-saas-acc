@@ -1,5 +1,6 @@
 const sql = require('mssql');
 const config = require('../config');
+const usageAggregationService = require('./usageAggregationService');
 
 /**
  * Service d'intégration avec le SaaS Accelerator
@@ -184,6 +185,8 @@ class SaaSIntegrationService {
 
     /**
      * Enregistre un événement d'usage de message pour facturation metered
+     * AVEC AGRÉGATION : Accumule localement, émission groupée horaire
+     * 
      * @param {Object} subscription - Abonnement associé
      * @param {Object} messageData - Données du message
      * @returns {Promise<void>}
@@ -203,6 +206,21 @@ class SaaSIntegrationService {
         }
 
         try {
+            // ÉTAPE 1 : Accumuler dans buffer d'agrégation (au lieu d'émettre directement)
+            // L'émission vers Marketplace API sera faite automatiquement toutes les heures
+            const aggregationService = usageAggregationService.getInstance();
+            await aggregationService.accumulate(
+                subscription.AmpsubscriptionId,  // Azure Marketplace subscription ID
+                subscription.AmpplanId,           // Plan ID (e.g., "professional")
+                messageData.dimension,            // Dimension (e.g., "pro", "enterprise")
+                1                                 // Quantity = 1 message
+            );
+
+            if (config.saas.debugMode) {
+                console.log(`[SaaSIntegration] Accumulated usage: subscription=${subscription.AmpsubscriptionId}, dimension=${messageData.dimension}, quantity=1`);
+            }
+
+            // ÉTAPE 2 : Audit local dans MeteredAuditLogs
             const request = this.pool.request();
 
             // Préparer les données pour MeteredAuditLogs

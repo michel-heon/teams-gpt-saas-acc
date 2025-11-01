@@ -35,7 +35,8 @@
         "@microsoft/teams.common": "^2.0.0",
         "@microsoft/teams.openai": "^2.0.0",
         "axios": "^1.7.9",
-        "mssql": "^12.0.0"
+        "mssql": "^12.0.0",
+        "node-cron": "^3.0.3"
     },
     "devDependencies": {
         "@types/jest": "^30.0.0",

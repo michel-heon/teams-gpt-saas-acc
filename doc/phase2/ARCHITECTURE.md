@@ -44,20 +44,47 @@ Azure Marketplace utilise un modèle de **facturation à la consommation** (mete
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     Flux de facturation                          │
+│                Flux de facturation (AVEC AGRÉGATION)             │
 └─────────────────────────────────────────────────────────────────┘
 
 1. Utilisateur envoie un message
           ↓
 2. Application traite le message (OpenAI)
           ↓
-3. ⚡ Application POST vers Marketplace Metering Service API
-   https://marketplaceapi.microsoft.com/api/usageEvent
+3. ⚡ Application ACCUMULE dans buffer local (usageAggregationService)
+   Buffer key: "subscriptionId:planId:dimension:hour"
+   Incrémente quantity: 1 → 2 → 3 → ... → 20
+          ↓
+4. ⏰ Tâche planifiée (cron: toutes les heures à 0 minute)
+   Émet buffer agrégé vers Marketplace Metering Service API
+   POST https://marketplaceapi.microsoft.com/api/usageEvent
    Body: {
      resourceId: "subscription-guid",
      planId: "professional",
      dimension: "pro",
-     quantity: 1,
+     quantity: 20,  ← Total agrégé pour l'heure
+     effectiveStartTime: "2024-01-01T10:00:00Z"  ← Début de l'heure
+   }
+          ↓
+5. API Marketplace répond
+   {
+     usageEventId: "event-guid",
+     status: "Accepted",
+     messageTime: "2024-01-01T11:00:05Z"
+   }
+          ↓
+6. Azure Marketplace agrège et facture (mensuel)
+   Base: $9.99
+   Usage: 20 messages (300 inclus) → Pas de dépassement
+   Total: $9.99
+          ↓
+7. ✅ Application insert dans MeteredAuditLogs (audit local)
+   {
+     RequestJson: {dimension: "pro", quantity: 20, ...},
+     ResponseJson: {usageEventId: "event-guid", status: "Accepted", ...},
+     StatusCode: 200
+   }
+```
      effectiveStartTime: "2024-01-15T10:30:00Z"
    }
           ↓
@@ -219,32 +246,79 @@ async getAccessToken() {
 }
 ```
 
-#### Agrégation par heure (future amélioration)
+#### Agrégation par heure (IMPLÉMENTÉ)
 
-**Problème actuel :** L'API limite à 1 événement/heure. Si un utilisateur envoie 10 messages en 30 minutes, seul le premier sera accepté.
+**Problème :** L'API limite à 1 événement/heure par `resourceId` + `dimension`. Si un utilisateur envoie 20 messages en 30 minutes, une émission directe rejetterait les 19 derniers (erreur 409).
 
-**Solution :** Implémenter un système d'agrégation :
+**Solution implémentée :** Système d'agrégation avec `UsageAggregationService` :
+
 ```javascript
-// Buffer local (en mémoire ou Redis)
-const usageBuffer = new Map();
+// Service d'agrégation : src/services/usageAggregationService.js
+const usageAggregationService = require('./usageAggregationService');
 
-async function trackMessage(subscriptionId, dimension) {
-  const hour = new Date().setMinutes(0, 0, 0); // Arrondir à l'heure
-  const key = `${subscriptionId}:${dimension}:${hour}`;
+// Dans trackMessageUsage() - Accumulation locale
+async function trackMessageUsage(subscription, messageData) {
+  const aggregationService = usageAggregationService.getInstance();
   
-  // Incrémenter compteur local
-  const count = (usageBuffer.get(key) || 0) + 1;
-  usageBuffer.set(key, count);
+  // Accumuler dans buffer (au lieu d'émettre directement)
+  await aggregationService.accumulate(
+    subscription.AmpsubscriptionId,  // resourceId
+    subscription.AmpplanId,           // planId
+    messageData.dimension,            // dimension (pro, enterprise)
+    1                                 // quantity = 1 message
+  );
   
-  // Émettre vers API toutes les heures
-  if (count === 1 || isNewHour()) {
-    await meteringService.emitUsageEvent(subscriptionId, planId, dimension, count);
-    usageBuffer.delete(key);
-  }
+  // Le buffer accumule : key = "subscriptionId:planId:dimension:hour"
+  // Exemple : "abc-123:professional:pro:1704103200000" → quantity: 20
 }
+
+// Tâche planifiée (node-cron) - Émission automatique toutes les heures
+cron.schedule('0 * * * *', async () => {
+  await aggregationService.emitAggregatedUsage();
+});
 ```
 
-**Note :** Pour Phase 2.5, on émet 1 événement par message (acceptable pour MVP). L'agrégation sera implémentée en Phase 3 si nécessaire.
+**Fonctionnement détaillé :**
+
+1. **Accumulation** : Chaque message incrémente un compteur dans un buffer en mémoire (Map)
+   - Clé : `subscriptionId:planId:dimension:hourTimestamp`
+   - Valeur : `{ quantity: 20, hour: 1704103200000, firstSeen: ... }`
+
+2. **Émission horaire** : Tâche cron (minute 0 de chaque heure)
+   - Parcourt buffer
+   - Émet `quantity=20` en 1 seul appel API
+   - Supprime entrées émises avec succès
+   - Conserve entrées échouées pour réessayer
+
+3. **Persistance** : Sauvegarde buffer dans `data/usage-buffer.json`
+   - Restauration après redémarrage
+   - Évite perte de données agrégées
+
+**Exemple concret : 20 messages entre 10:00-11:00**
+
+```javascript
+// 10:05 - Message 1
+await aggregationService.accumulate('abc-123', 'professional', 'pro', 1);
+// Buffer: {"abc-123:professional:pro:1704103200000": {quantity: 1}}
+
+// 10:15 - Messages 2-5
+// Buffer: {"abc-123:professional:pro:1704103200000": {quantity: 5}}
+
+// 10:45 - Messages 6-20
+// Buffer: {"abc-123:professional:pro:1704103200000": {quantity: 20}}
+
+// 11:00 - Émission automatique (cron)
+await meteringService.emitUsageEvent('abc-123', 'professional', 'pro', 20, '2024-01-01T10:00:00Z');
+// Réponse API : {usageEventId: "xyz-789", status: "Accepted", ...}
+// Buffer: {} (entrée supprimée)
+```
+
+**Résultat :** Les 20 messages sont facturés avec 1 seul appel API ✅
+
+**Gestion des erreurs :**
+- Si émission échoue (500, network timeout) → Entrée conservée dans buffer
+- Réessai automatique à la prochaine heure (11:00 → retry à 12:00)
+- Logs détaillés pour monitoring
 
 ### Table MeteredAuditLogs : Audit local uniquement
 
@@ -436,39 +510,50 @@ sequenceDiagram
         alt Plan = development
             Note over SaaS: Pas de tracking<br/>(messages illimités gratuits)
         else Plan avec facturation
-            SaaS->>Metering: emitUsageEvent(subscriptionId, planId, dimension, 1)
+            SaaS->>Usage: accumulate(subscriptionId, planId, dimension, 1)
             
-            Note over Metering: 1. Vérifier token Azure AD<br/>2. Construire payload<br/>3. POST vers API
+            Note over Usage: Accumuler dans buffer local<br/>key: "subId:planId:dim:hour"<br/>quantity: 1 → 2 → 3 → ... → 20<br/>Pas d'appel API immédiat
             
-            Metering->>MktAPI: POST /api/usageEvent<br/>{resourceId, planId, dimension, quantity:1}
-            
-            alt API Success (200 OK)
-                MktAPI-->>Metering: {usageEventId, status:"Accepted"}
-                Metering-->>SaaS: {usageEventId, status, messageTime}
-                
-                SaaS->>DB: INSERT INTO MeteredAuditLogs<br/>(RequestJson, ResponseJson, StatusCode:200)
-                Note over DB: Enregistre événement<br/>pour audit local<br/>(Azure ne lit PAS cette table)
-                
-            else API Duplicate (409 Conflict)
-                MktAPI-->>Metering: 409 Conflict (événement déjà émis cette heure)
-                Metering-->>SaaS: Error 409 (non-bloquant)
-                
-                SaaS->>DB: INSERT INTO MeteredAuditLogs<br/>(RequestJson, ResponseJson, StatusCode:409)
-                Note over SaaS: Logger mais continuer<br/>(événement déjà comptabilisé)
-                
-            else API Error (401/403/400/500)
-                MktAPI-->>Metering: Error (auth/validation/server)
-                Metering-->>SaaS: Error (non-bloquant)
-                
-                SaaS->>DB: INSERT INTO MeteredAuditLogs<br/>(RequestJson, ResponseJson, StatusCode)
-                Note over SaaS: Logger l'erreur<br/>mais NE PAS bloquer utilisateur
-            end
-            
-            Note over MktAPI: Azure Marketplace agrège<br/>TOUS les événements reçus<br/>via API pour calculer<br/>la facturation
+            Usage-->>SaaS: Accumulation OK
+            SaaS->>DB: INSERT INTO MeteredAuditLogs<br/>(RequestJson avec dimension, quantity:1)
+            Note over DB: Enregistre message<br/>pour audit local
             
         end
     else Tracking désactivé ou pas d'abonnement
         Note over Usage: Skip tracking
+    end
+    
+    Note over App: ⏰ Tâche planifiée (cron: 0 * * * *)<br/>S'exécute toutes les heures à minute 0
+    
+    loop Émission horaire agrégée
+        Usage->>Usage: emitAggregatedUsage()
+        
+        loop Pour chaque entrée dans buffer
+            Usage->>Metering: emitUsageEvent(subscriptionId, planId, dimension, quantity=20)
+            
+            Note over Metering: 1. Vérifier token Azure AD<br/>2. Construire payload avec<br/>quantity agrégée (ex: 20)<br/>3. POST vers API
+            
+            Metering->>MktAPI: POST /api/usageEvent<br/>{resourceId, planId, dimension, quantity:20}
+            
+            alt API Success (200 OK)
+                MktAPI-->>Metering: {usageEventId, status:"Accepted"}
+                Metering-->>Usage: Success {usageEventId}
+                
+                Usage->>DB: UPDATE MeteredAuditLogs<br/>(ResponseJson avec usageEventId, StatusCode:200)
+                Note over DB: Enregistre événement API<br/>pour audit complet
+                
+                Usage->>Usage: Supprimer entrée du buffer
+                
+            else API Error (401/403/400/500)
+                MktAPI-->>Metering: Error
+                Metering-->>Usage: Error (non-bloquant)
+                
+                Usage->>DB: INSERT INTO MeteredAuditLogs<br/>(RequestJson, ResponseJson, StatusCode)
+                Note over Usage: Conserver dans buffer<br/>pour réessayer à la prochaine heure
+            end
+            
+            Note over MktAPI: Azure Marketplace agrège<br/>TOUS les événements reçus<br/>via API pour calculer<br/>la facturation mensuelle
+        end
     end
 ```
 
