@@ -1,5 +1,44 @@
 # Plan de tests : Niveau 4 - Playground (Tests interactifs)
 
+## 📊 État d'implémentation
+
+**Version** : 1.0.0  
+**Date** : Novembre 2025  
+**Phase** : 2.5 - Infrastructure de test Playground
+
+### ✅ Scripts implémentés
+
+| Commande | Script | État | Description |
+|----------|--------|------|-------------|
+| `make list-plans` | `list-plans.js` | ✅ **Implémenté** | Liste tous les plans depuis la BD avec dimensions |
+| `make list-plans-market` | `list-plans-market.js` | ✅ **Implémenté** | Plans avec config Marketplace (limites, coûts) |
+| `make message-count` | `message-count.js` | ✅ **Implémenté** | Compte messages dans MeteredAuditLogs par plan |
+| `make message-count-market` | `message-count-market.js` | ✅ **Implémenté** | Compte messages émis vers API Marketplace |
+| `make get-subscription` | `get-subscription.js` | ⏳ **À faire** | Récupère subscription Playground |
+| `make get-plan` | `get-plan.js` | ⏳ **À faire** | Récupère plan actuel |
+| `make set-plan` | `set-plan.js` | ⏳ **À faire** | Change le plan de subscription |
+| `make show-audit-logs` | `show-audit-logs.js` | ⏳ **À faire** | Affiche derniers audit logs |
+| `make show-buffer` | `show-buffer.js` | ⏳ **À faire** | Affiche contenu du buffer |
+
+### 🔧 Utilitaires créés
+
+- `check-schema.js` : Inspect schéma de table BD
+- `check-tables.js` : Liste toutes les tables BD
+
+### 📝 Documentation
+
+- ✅ `test-saas-playground/README.md` : Documentation complète des commandes et exemples
+- ✅ Authentication Azure AD configurée (passwordless)
+- ✅ Base de données testée : sac-02-sql.database.windows.net
+
+### 🎯 Prochaines étapes
+
+1. Implémenter scripts de gestion subscription (get/set)
+2. Implémenter scripts d'analyse (show-audit-logs, show-buffer)
+3. Créer .env.playground
+4. Implémenter TraceService
+5. Créer scénarios de test
+
 ## Vue d'ensemble
 
 Ce document décrit le **Niveau 4** de la stratégie de test : les tests interactifs en environnement Playground. Ce niveau permet de tester le système d'agrégation dans un environnement Teams réel avec des commandes de diagnostic interactives.
