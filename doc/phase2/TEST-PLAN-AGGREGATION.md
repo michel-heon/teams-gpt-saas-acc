@@ -16,7 +16,59 @@ Ce document décrit la stratégie de test pour valider le système d'agrégation
    - Confirmer que seules les heures complètes sont émises
    - Valider que le buffer est vidé après émission réussie
 
-### 3. **Validation de l'API Marketplace**
+3. Supprimer abonnement immédiatement après tests
+
+### Niveau 4 : Tests Playground (Tests interactifs) - 🎮 Environnement réel Teams
+
+**Objectif** : Tester le système complet dans Microsoft 365 Agents Playground avec diagnostic interactif
+
+**Approche** :
+- Tests interactifs via interface Teams réelle
+- Commandes de diagnostic en temps réel (Makefile + scripts JS)
+- Observation du buffer et des événements Marketplace
+- Validation complète end-to-end avec utilisateur réel
+
+**Répertoire de travail** :
+```
+test-saas-playground/
+├── Makefile                    # Commandes diagnostic
+├── scripts/                    # Scripts JS pour monitoring
+└── test-scenarios/             # Scénarios pré-définis
+```
+
+**Commandes disponibles** :
+```bash
+make get-subscription           # Voir la subscription Playground
+make get-plan                   # Voir le plan actuel
+make set-plan PLAN=<name>       # Changer le plan
+make list-plans                 # Lister plans disponibles
+make count-marketplace-messages # Compter messages API
+make count-buffer-messages      # Compter messages buffer
+make show-buffer                # Afficher contenu buffer
+make show-audit-logs            # Afficher audit logs
+```
+
+**Scénarios interactifs** :
+1. **Message unique** : Valider accumulation d'un message
+2. **Burst messages** : Envoyer 20 messages en 5 minutes
+3. **Émission horaire** : Observer l'émission automatique
+4. **Changement de plan** : Tester transition entre plans
+
+**Avantages** :
+- ✅ Tests en conditions réelles (Teams UI)
+- ✅ Observation temps réel du buffer
+- ✅ Debugging interactif facile
+- ✅ Validation comportement utilisateur
+- ✅ Commandes make simples
+
+**Inconvénients** :
+- ⚠️ Nécessite environnement Teams configuré
+- ⚠️ Tests manuels (non automatisés)
+- ⚠️ Plus lent que niveaux 1-2
+
+**Documentation complète** : Voir [TEST-PLAN-PLAYGROUND.md](./TEST-PLAN-PLAYGROUND.md)
+
+## 📋 Scripts de test
    - Vérifier l'authentification Azure AD (client credentials)
    - Confirmer que les requêtes POST sont correctement formatées
    - Valider la gestion des réponses API (200, 409, 400, 401, 403, 500)
@@ -597,7 +649,9 @@ INSERT INTO MeteredAuditLogs (
 
 **Solution recommandée** : Utiliser une **stratégie de test en 3 niveaux** pour éviter tout coût.
 
-## 🎯 Stratégie de test en 3 niveaux (RECOMMANDATION FINALE)
+## 🎯 Stratégie de test en 4 niveaux
+
+Cette stratégie offre une couverture complète, du mock local aux tests interactifs en environnement réel.
 
 ### Niveau 1 : Tests unitaires (Mock API) - 0% risque facturation
 
@@ -811,6 +865,13 @@ Tests end-to-end avec facturation réelle (⚠️ utiliser avec précaution) :
 - Validation quota et dépassement
 - **Limité à 30 messages maximum**
 
+### 4. `test-saas-playground/` (Niveau 4)
+Tests interactifs en environnement Playground :
+- Commandes de diagnostic (Makefile)
+- Monitoring en temps réel (buffer, audit logs, API)
+- Scénarios utilisateur pré-définis
+- **Documentation complète** : [TEST-PLAN-PLAYGROUND.md](./TEST-PLAN-PLAYGROUND.md)
+
 ## 🏃 Exécution des tests
 
 ### Tests recommandés en développement
@@ -820,11 +881,19 @@ npm run test:aggregation:unit
 
 # 2. Tests d'intégration (vraie API, 0% coût avec plan development)
 MARKETPLACE_TEST_MODE=true npm run test:aggregation:integration
+
+# 3. Tests Playground (interactifs, environment Teams réel)
+cd test-saas-playground
+make start-playground
+make get-subscription
+make count-buffer-messages
+# Envoyer messages via Teams...
+make show-audit-logs
 ```
 
 ### Tests avant release production
 ```bash
-# 3. Tests E2E (⚠️ risque facturation, max 30 messages)
+# 4. Tests E2E (⚠️ risque facturation, max 30 messages)
 npm run test:aggregation:e2e -- --max-messages=30
 ```
 
@@ -885,13 +954,15 @@ MARKETPLACE_CLIENT_SECRET=your-secret
 
 1. ✅ **Implémenter UsageAggregationService** (FAIT)
 2. ✅ **Mettre à jour ARCHITECTURE.md** (FAIT)
-3. � **Modifier meteringApiService pour supporter MARKETPLACE_TEST_MODE** (REQUIS pour niveau 2)
-4. � **Créer script de test niveau 1** (`test-aggregation-unit.js`)
-5. � **Créer script de test niveau 2** (`test-aggregation-integration.js`) - après étape 3
-6. � **Créer script de test niveau 3** (`test-aggregation-e2e.js`)
-7. � **Exécuter tests et valider tous les scénarios**
-8. � **Documenter résultats dans rapport de test**
-9. � **Commit et tag v1.2.6**
+3. ✅ **Créer documentation Playground niveau 4** (FAIT)
+4. 🔜 **Modifier meteringApiService pour supporter MARKETPLACE_TEST_MODE** (REQUIS pour niveau 2)
+5. �� **Créer script de test niveau 1** (`test-aggregation-unit.js`)
+6. 🔜 **Créer script de test niveau 2** (`test-aggregation-integration.js`) - après étape 4
+7. 🔜 **Créer script de test niveau 3** (`test-aggregation-e2e.js`)
+8. 🔜 **Créer infrastructure Playground niveau 4** (`test-saas-playground/`)
+9. 🔜 **Exécuter tests et valider tous les scénarios** (niveaux 1-4)
+10. 🔜 **Documenter résultats dans rapport de test**
+11. 🔜 **Commit final et tag v1.2.7**
 
 ---
 
