@@ -1,10 +1,12 @@
 const sql = require('mssql');
 const config = require('../config');
-const usageAggregationService = require('./usageAggregationService');
 
 /**
  * Service d'intégration avec le SaaS Accelerator
  * Gère la connexion à la base de données et les opérations liées aux abonnements
+ * 
+ * Note: L'émission vers Marketplace API est gérée par le SaaS Accelerator Metered Scheduler,
+ * pas par ce service. Nous enregistrons seulement l'usage dans MeteredAuditLogs.
  */
 class SaaSIntegrationService {
     constructor() {
@@ -40,13 +42,17 @@ class SaaSIntegrationService {
             };
 
             // Support for Managed Identity authentication
-            if (config.saas.useManagedIdentity) {
+            // En mode développement/Playground sans credentials, utiliser Azure AD par défaut
+            const hasCredentials = config.saas.dbUser && config.saas.dbPassword;
+            const useAzureAD = config.saas.useManagedIdentity || !hasCredentials;
+            
+            if (useAzureAD) {
                 // Use Azure AD Managed Identity authentication
                 dbConfig.authentication = {
                     type: 'azure-active-directory-default'
                 };
                 if (config.saas.debugMode) {
-                    console.log('[SaaSIntegration] Using Azure AD Managed Identity authentication');
+                    console.log('[SaaSIntegration] Using Azure AD authentication (passwordless)');
                 }
             } else {
                 // Fallback to SQL authentication
@@ -74,6 +80,39 @@ class SaaSIntegrationService {
             }
             
             throw error;
+        }
+    }
+
+    /**
+     * Récupère une valeur de configuration depuis ApplicationConfiguration
+     * @param {string} name - Nom de la configuration
+     * @returns {Promise<string|null>} Valeur de la configuration ou null si non trouvée
+     */
+    async getApplicationConfig(name) {
+        try {
+            await this.initialize();
+
+            if (!this.isInitialized || !this.pool) {
+                console.warn(`[SaaSIntegration] Cannot read config '${name}' - database not initialized`);
+                return null;
+            }
+
+            const result = await this.pool.request()
+                .input('name', sql.NVarChar(50), name)
+                .query(`
+                    SELECT [Value]
+                    FROM [dbo].[ApplicationConfiguration]
+                    WHERE [Name] = @name
+                `);
+
+            if (result.recordset.length > 0) {
+                return result.recordset[0].Value;
+            }
+
+            return null;
+        } catch (error) {
+            console.error(`[SaaSIntegration] Error reading config '${name}':`, error.message);
+            return null;
         }
     }
 
@@ -176,7 +215,21 @@ class SaaSIntegrationService {
                 console.log(`[SaaSIntegration] Found active subscription: ${subscription.Id} (Plan: ${subscription.AMPPlanId})`);
             }
 
-            return subscription;
+            // Mapper les noms de colonnes SQL vers camelCase pour compatibilité avec le reste du code
+            return {
+                id: subscription.Id,
+                ampSubscriptionId: subscription.AMPSubscriptionId,
+                name: subscription.Name,
+                planId: subscription.AMPPlanId,
+                quantity: subscription.AMPQuantity,
+                saasSubscriptionStatus: subscription.SubscriptionStatus,
+                teamsUserId: subscription.TeamsUserId,
+                tenantId: subscription.TenantId,
+                teamsConversationId: subscription.TeamsConversationId,
+                createDate: subscription.CreateDate,
+                modifyDate: subscription.ModifyDate,
+                isActive: subscription.IsActive
+            };
         } catch (error) {
             console.error('[SaaSIntegration] Error getting active subscription:', error);
             throw error;
@@ -206,21 +259,8 @@ class SaaSIntegrationService {
         }
 
         try {
-            // ÉTAPE 1 : Accumuler dans buffer d'agrégation (au lieu d'émettre directement)
-            // L'émission vers Marketplace API sera faite automatiquement toutes les heures
-            const aggregationService = usageAggregationService.getInstance();
-            await aggregationService.accumulate(
-                subscription.AmpsubscriptionId,  // Azure Marketplace subscription ID
-                subscription.AmpplanId,           // Plan ID (e.g., "professional")
-                messageData.dimension,            // Dimension (e.g., "pro", "enterprise")
-                1                                 // Quantity = 1 message
-            );
-
-            if (config.saas.debugMode) {
-                console.log(`[SaaSIntegration] Accumulated usage: subscription=${subscription.AmpsubscriptionId}, dimension=${messageData.dimension}, quantity=1`);
-            }
-
-            // ÉTAPE 2 : Audit local dans MeteredAuditLogs
+            // Enregistrer l'usage dans MeteredAuditLogs
+            // Note: L'émission vers Marketplace API sera faite par le SaaS Accelerator Scheduler
             const request = this.pool.request();
 
             // Préparer les données pour MeteredAuditLogs
@@ -236,16 +276,18 @@ class SaaSIntegrationService {
                 timestamp: messageData.timestamp.toISOString()
             };
 
-            request.input('subscriptionId', sql.UniqueIdentifier, subscription.Id);
+            request.input('subscriptionId', sql.Int, subscription.id); // subscription.id est un INT
             request.input('requestJson', sql.NVarChar(sql.MAX), JSON.stringify(requestJson));
             request.input('statusCode', sql.NVarChar(50), '200');
             request.input('createdDate', sql.DateTime2, new Date());
+            request.input('createdBy', sql.Int, 0); // 0 = système automatique (pas d'utilisateur KnownUsers)
+            request.input('runBy', sql.NVarChar(255), 'Auto-Agent'); // Identifier que c'est l'agent automatique
 
             const query = `
                 INSERT INTO [dbo].[MeteredAuditLogs] 
-                (SubscriptionId, RequestJson, StatusCode, CreatedDate)
+                (SubscriptionId, RequestJson, StatusCode, CreatedDate, CreatedBy, RunBy)
                 VALUES 
-                (@subscriptionId, @requestJson, @statusCode, @createdDate)
+                (@subscriptionId, @requestJson, @statusCode, @createdDate, @createdBy, @runBy)
             `;
 
             await request.query(query);
@@ -276,7 +318,7 @@ class SaaSIntegrationService {
         try {
             const request = this.pool.request();
 
-            request.input('subscriptionId', sql.UniqueIdentifier, subscription.Id);
+            request.input('subscriptionId', sql.Int, subscription.id); // subscription.id est un INT
             request.input('teamsUserId', sql.NVarChar(255), messageData.teamsUserId);
             request.input('conversationId', sql.NVarChar(255), messageData.conversationId);
             request.input('tokenCount', sql.Int, messageData.tokenCount || null);
@@ -342,7 +384,7 @@ class SaaSIntegrationService {
             const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
             const request = this.pool.request();
-            request.input('subscriptionId', sql.UniqueIdentifier, subscriptionId);
+            request.input('subscriptionId', sql.Int, subscriptionId); // subscriptionId est un INT
             request.input('periodStart', sql.DateTime2, periodStart);
 
             // Compter les messages ce mois via MeteredAuditLogs
@@ -397,7 +439,7 @@ class SaaSIntegrationService {
             const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
             const request = this.pool.request();
-            request.input('subscriptionId', sql.UniqueIdentifier, subscriptionId);
+            request.input('subscriptionId', sql.Int, subscriptionId); // subscriptionId est un INT
             request.input('periodStart', sql.DateTime2, periodStart);
 
             const query = `

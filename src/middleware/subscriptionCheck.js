@@ -47,18 +47,27 @@ async function subscriptionCheckMiddleware(context, next) {
     const teamsUserId = extractTeamsUserId(activity);
     const tenantId = activity.conversation?.tenantId || null;
     
+    console.log(`[SubscriptionCheck] 🔍 Checking subscription for user: ${teamsUserId}, tenant: ${tenantId}`);
     if (config.saas.debugMode) {
-      console.log(`[SubscriptionCheck] Checking subscription for user: ${teamsUserId}, tenant: ${tenantId}`);
+      console.log(`[SubscriptionCheck] Debug - Full activity.from:`, JSON.stringify(activity.from, null, 2));
     }
     
     // Vérification de l'abonnement actif
     const subscription = await saasIntegration.getActiveSubscription(teamsUserId, tenantId);
     
+    console.log(`[SubscriptionCheck] 📋 Subscription lookup result:`, subscription ? {
+      id: subscription.id,
+      name: subscription.name,
+      planId: subscription.planId,
+      status: subscription.saasSubscriptionStatus,
+      teamsUserId: subscription.teamsUserId
+    } : 'NULL');
+    
     if (!subscription) {
       // Pas d'abonnement actif
       if (config.saas.permissiveMode || !config.saas.blockNoSubscription) {
         // Mode permissif ou blocage désactivé: continuer avec avertissement
-        console.warn(`[SubscriptionCheck] No subscription for user ${teamsUserId}, but permissive mode or blocking disabled`);
+        console.warn(`[SubscriptionCheck] ⚠️  No subscription for user ${teamsUserId}, but permissive mode or blocking disabled`);
         context.subscription = null;
         return await next();
       } else {
@@ -95,17 +104,17 @@ async function subscriptionCheckMiddleware(context, next) {
     // Abonnement valide: attacher au contexte pour les middlewares suivants
     context.subscription = subscription;
     
-    if (config.saas.debugMode) {
-      console.log(`[SubscriptionCheck] ✅ Valid subscription found:`, {
-        subscriptionId: subscription.id,
-        ampSubscriptionId: subscription.ampSubscriptionId,
-        planId: subscription.planId,
-        status: subscription.saasSubscriptionStatus
-      });
-    }
+    console.log(`[SubscriptionCheck] ✅ Valid subscription found:`, {
+      subscriptionId: subscription.id,
+      ampSubscriptionId: subscription.ampSubscriptionId,
+      planId: subscription.planId,
+      status: subscription.saasSubscriptionStatus
+    });
     
     // Continuer vers le prochain middleware
+    console.log('[SubscriptionCheck] 🚀 Calling next middleware...');
     await next();
+    console.log('[SubscriptionCheck] ✅ Next middleware completed');
     
   } catch (error) {
     console.error('[SubscriptionCheck] Error:', error);

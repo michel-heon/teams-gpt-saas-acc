@@ -48,12 +48,30 @@ class MeteringApiService {
 
         console.log('[MeteringApiService] Initializing...');
 
-        // Validate required configuration
-        if (!config.marketplace.enabled) {
-            console.log('[MeteringApiService] Marketplace metering is DISABLED via config');
-            this.isInitialized = true;
-            return;
+        // Check if metering is enabled in the database (SaaS Accelerator pattern)
+        const saasIntegration = require('./saasIntegration');
+        const isEnabledInDB = await saasIntegration.getApplicationConfig('IsMeteredBillingEnabled');
+        
+        if (isEnabledInDB) {
+            const enabled = isEnabledInDB.toLowerCase() === 'true';
+            console.log(`[MeteringApiService] IsMeteredBillingEnabled from DB: ${isEnabledInDB} → ${enabled}`);
+            
+            if (!enabled) {
+                console.log('[MeteringApiService] Marketplace metering is DISABLED in database (ApplicationConfiguration)');
+                this.isInitialized = true;
+                return;
+            }
+        } else {
+            // Fallback to environment variable if DB config not found
+            console.log('[MeteringApiService] IsMeteredBillingEnabled not found in DB, using environment variable');
+            if (!config.marketplace.enabled) {
+                console.log('[MeteringApiService] Marketplace metering is DISABLED via config');
+                this.isInitialized = true;
+                return;
+            }
         }
+
+        console.log('[MeteringApiService] ✅ Marketplace metering is ENABLED');
 
         const requiredConfig = [
             'tenantId',

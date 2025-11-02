@@ -49,8 +49,13 @@ test-saas-playground/
 │   ├── list-plans-market.js  # Plans avec config Marketplace
 │   ├── message-count.js  # Compte messages dans audit logs
 │   ├── message-count-market.js  # Messages émis vers Marketplace
+│   ├── message-diag.js   # ⭐ Diagnostic complet
+│   ├── setup-playground-subscription.js  # Configure subscription
+│   ├── link-teams-user.js  # Lie TeamsUserId à subscription
+│   ├── reset-playground.js  # Reset subscriptions (destructif)
 │   ├── check-schema.js   # Utilitaire: inspect schéma BD
-│   └── check-tables.js   # Utilitaire: liste tables BD
+│   ├── check-tables.js   # Utilitaire: liste tables BD
+│   └── README.md         # Documentation des scripts
 ├── Makefile              # Commandes make
 └── README.md             # Cette documentation
 ```
@@ -146,34 +151,64 @@ make message-count-market
 ```
 
 **Analyse** :
+- Messages avec ResponseJson NOT NULL (émis vers API)
 - Messages avec StatusCode 200/201/202 (succès)
 - Messages avec StatusCode 400/409/500 (erreurs)
 - Détails des réponses API
-- Top 5 des erreurs avec messages
 - Taux d'émission réussi vers Marketplace
 
 **Différence avec message-count** :
 - `message-count` : **TOUS** les messages dans l'audit log
-- `message-count-market` : **SEULEMENT** les messages émis vers l'API Marketplace (avec StatusCode HTTP)
+- `message-count-market` : **SEULEMENT** les messages avec réponse API Marketplace
+
+#### ⭐ Diagnostic complet (NOUVEAU)
+```bash
+make message-diag
+```
+
+**Affiche un diagnostic complet** :
+- � Nombre total de messages dans la BD
+- ⏳ Nombre de messages en transit (ResponseJson = NULL)
+- ✅ Nombre de messages enregistrés dans Marketplace (avec réponse API)
+- 📋 Détail des messages en transit par heure
+- ⏰ Heure de la prochaine transmission (via SaaS Accelerator Scheduler)
+- ⚙️ Configuration du Metered Billing (IsMeteredBillingEnabled)
+- 📅 Informations du Scheduler (StartDate, NextRunTime, Frequency)
+- 📈 Dernières émissions réussies
 
 **Exemple de sortie** :
 ```
-📡 Messages émis vers l'API Azure Marketplace:
-   API: https://marketplaceapi.microsoft.com/api/usageEvent
-   État: ✅ Activé
+🔍 DIAGNOSTIC COMPLET DES MESSAGES MARKETPLACE
+═══════════════════════════════════════════════
+📊 Messages dans la base de données: 9
+⏳ Messages en transit (non émis): 9
+✅ Messages enregistrés dans Marketplace: 0
 
-┌──────────────────┬──────────────┬──────────┬──────────┬──────────┐
-│ Plan ID          │ Nom          │ Émis ✅   │ Échecs ❌ │ Réponses │
-├──────────────────┼──────────────┼──────────┼──────────┼──────────┤
-│ pro              │ Professional │ 240      │ 10       │ 245      │
-└──────────────────┴──────────────┴──────────┴──────────┴──────────┘
+📋 Détail des messages en transit:
+   🕐 Heure 2025-11-02 11:00 UTC: 6 message(s)
+   🕐 Heure 2025-11-02 12:00 UTC: 3 message(s)
 
-⚠️  Analyse des erreurs:
-║ 1. Statut 409: 8 occurrence(s)
-║    Message: Duplicate usage event detected
-║ 2. Statut 400: 2 occurrence(s)
-║    Message: Invalid dimension value
+⏰ Prochaine transmission prévue:
+   📅 Scheduler: Playground-meter
+   📦 Subscription: Playground Subscription
+   📋 Plan: dev-01
+   🏷️  Dimension: dev
+   🔁 Fréquence: Hourly
+   📅 Date de début: 2025-11-02 19:00:00 UTC
+   ⏱️  Démarrage dans: 53 minute(s)
+
+⚙️  Configuration:
+   Metered Billing: ✅ Activé
+
+📊 RÉSUMÉ:
+   Total messages: 9
+   En transit: 9 (100.0%)
+   Émis: 0 (0.0%)
+
+✅ Les messages en transit seront émis lors de la prochaine exécution du scheduler
 ```
+
+**⚠️ Note importante** : Ce script montre l'état réel du système. Si des messages sont en transit, c'est normal - ils seront émis par le SaaS Accelerator Metered Scheduler selon la fréquence configurée.
 
 ## 🔍 Utilitaires de diagnostic
 

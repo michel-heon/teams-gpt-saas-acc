@@ -21,34 +21,32 @@ const config = require('../config');
 async function usageTrackingMiddleware(context, next) {
   const { activity, subscription } = context;
   
+  console.log('[UsageTracking] 📊 Middleware called');
+  console.log('[UsageTracking] - Subscription:', subscription ? `ID ${subscription.id}` : 'NULL');
+  console.log('[UsageTracking] - Tracking enabled:', config.saas.enableUsageTracking);
+  
   try {
     // Si pas d'abonnement ou tracking désactivé, continuer sans tracking
     if (!subscription || !config.saas.enableUsageTracking) {
-      if (config.saas.debugMode) {
-        console.log('[UsageTracking] No subscription or tracking disabled, skipping usage tracking');
-      }
+      console.log('[UsageTracking] ⚠️  No subscription or tracking disabled, skipping usage tracking');
       return await next();
     }
     
     const subscriptionId = subscription.id;
     
-    if (config.saas.debugMode) {
-      console.log(`[UsageTracking] Processing message for subscription: ${subscriptionId}`);
-    }
+    console.log(`[UsageTracking] 🎯 Processing message for subscription: ${subscriptionId}`);
     
     // 1. Classifier le message (free, pro, pro-plus)
     const dimension = messageClassifier.classifyMessage(activity, subscription);
     const metadata = messageClassifier.getMessageMetadata(activity);
     const isPremium = messageClassifier.isPremiumMessage(activity);
     
-    if (config.saas.debugMode) {
-      console.log(`[UsageTracking] Message classified:`, {
-        dimension,
-        isPremium,
-        tokenCount: metadata.tokenCount,
-        conversationType: metadata.conversationType
-      });
-    }
+    console.log(`[UsageTracking] 📝 Message classified:`, {
+      dimension,
+      isPremium,
+      tokenCount: metadata.tokenCount,
+      conversationType: metadata.conversationType
+    });
     
     // 2. Attacher les informations de tracking au contexte
     context.usageTracking = {
@@ -61,25 +59,31 @@ async function usageTrackingMiddleware(context, next) {
     
     // 3. Continuer vers le handler du message (traitement OpenAI)
     // IMPORTANT: On ne bloque JAMAIS avant le traitement
+    console.log('[UsageTracking] 🚀 Calling next (message handler)...');
     await next();
+    console.log('[UsageTracking] ✅ Message handler completed');
     
     // 4. APRÈS le traitement réussi, enregistrer l'usage
     const processingTime = Date.now() - context.usageTracking.startTime;
     
+    console.log(`[UsageTracking] 💾 Recording usage: subscription=${subscriptionId}, dimension=${dimension}, processingTime=${processingTime}ms`);
+    
     try {
       // Track dans la base de données et émettre vers Azure Marketplace API
       await saasIntegration.trackMessageUsage(
-        subscriptionId,
-        dimension,
-        1, // quantity = 1 message
+        subscription, // Passer l'objet subscription complet
         {
-          ...metadata,
+          dimension,
+          quantity: 1,
           processingTime,
           conversationId: activity.conversation.id,
-          userId: activity.from.aadObjectId || activity.from.id,
-          timestamp: new Date()
+          teamsUserId: activity.from.aadObjectId || activity.from.id,
+          timestamp: new Date(),
+          ...metadata
         }
       );
+      
+      console.log('[UsageTracking] ✅ saasIntegration.trackMessageUsage completed');
       
       // Report pour les logs formatés (RGPD-compliant)
       await usageReporter.reportUsage(
@@ -93,13 +97,11 @@ async function usageTrackingMiddleware(context, next) {
         }
       );
       
-      if (config.saas.debugMode) {
-        console.log(`[UsageTracking] ✅ Usage tracked successfully:`, {
-          subscriptionId,
-          dimension,
-          processingTime: `${processingTime}ms`
-        });
-      }
+      console.log(`[UsageTracking] ✅ Usage tracked successfully:`, {
+        subscriptionId,
+        dimension,
+        processingTime: `${processingTime}ms`
+      });
       
     } catch (trackingError) {
       // Erreur lors du tracking: logger mais ne JAMAIS bloquer l'utilisateur

@@ -61,7 +61,12 @@ const config = {
   // Azure Marketplace Metering Service API - Phase 2.5
   marketplace: {
     // Enable/disable metering API calls (set to false for development/testing)
-    enabled: process.env.MARKETPLACE_METERING_ENABLED === 'true',
+    enabled: (() => {
+      const value = process.env.MARKETPLACE_METERING_ENABLED;
+      const isEnabled = value === 'true';
+      console.log(`[Config] MARKETPLACE_METERING_ENABLED="${value}" → enabled=${isEnabled}`);
+      return isEnabled;
+    })(),
     
     // Azure AD authentication for Marketplace API
     tenantId: process.env.MARKETPLACE_METERING_TENANT_ID || process.env.TENANT_ID,

@@ -23,11 +23,17 @@ Facturation mensuelle = Prix de base + (Messages utilisés - Quota inclus) × Ta
 ### Responsabilités
 
 #### Application Teams GPT
+✅ Enregistrer l'usage dans `MeteredAuditLogs` (base de données SaaS Accelerator)
 ✅ Vérifier l'existence d'un abonnement actif (optionnel)
-✅ **ÉMETTRE** les événements d'usage vers l'API Azure Marketplace (POST)
-✅ Enregistrer localement dans `MeteredAuditLogs` pour audit (APRÈS émission API)
+❌ NE PAS émettre directement vers l'API Marketplace
 ❌ NE PAS vérifier les limites de quota
 ❌ NE JAMAIS bloquer les dépassements
+
+#### SaaS Accelerator Metered Scheduler
+✅ Lire les messages depuis `MeteredAuditLogs`
+✅ Agréger les messages par heure (conformément aux contraintes Marketplace)
+✅ **ÉMETTRE** les événements d'usage vers l'API Azure Marketplace (POST)
+✅ Enregistrer les réponses API dans `MeteredAuditLogs` (ResponseJson)
 
 #### Azure Marketplace
 ✅ Recevoir les événements d'usage via API REST
@@ -40,23 +46,32 @@ Facturation mensuelle = Prix de base + (Messages utilisés - Quota inclus) × Ta
 
 ### Principe de fonctionnement
 
-Azure Marketplace utilise un modèle de **facturation à la consommation** (metered billing) où l'application **émet activement** les événements d'usage vers l'API Marketplace. Azure Marketplace **NE LIT PAS** la base de données de l'application.
+Azure Marketplace utilise un modèle de **facturation à la consommation** (metered billing) où le **SaaS Accelerator** émet activement les événements d'usage vers l'API Marketplace. L'application Teams **enregistre uniquement** l'usage dans la base de données.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                Flux de facturation (AVEC AGRÉGATION)             │
+│         Flux de facturation (AVEC SaaS Accelerator)              │
 └─────────────────────────────────────────────────────────────────┘
 
 1. Utilisateur envoie un message
           ↓
-2. Application traite le message (OpenAI)
+2. Application Teams traite le message (OpenAI)
           ↓
-3. ⚡ Application ACCUMULE dans buffer local (usageAggregationService)
-   Buffer key: "subscriptionId:planId:dimension:hour"
-   Incrémente quantity: 1 → 2 → 3 → ... → 20
+3. ✅ Application Teams enregistre dans MeteredAuditLogs
+   INSERT INTO MeteredAuditLogs (
+     SubscriptionId, PlanId, Dimension, Quantity,
+     RequestJson, StatusCode, CreatedDate
+   )
+   VALUES (
+     'subscription-guid', 'professional', 'pro', 1,
+     '{"dimension":"pro","quantity":1,...}', 200, GETUTCDATE()
+   )
           ↓
-4. ⏰ Tâche planifiée (cron: toutes les heures à 0 minute)
-   Émet buffer agrégé vers Marketplace Metering Service API
+4. ⏰ SaaS Accelerator Metered Scheduler (tâche planifiée horaire)
+   - Lit les messages depuis MeteredAuditLogs WHERE ResponseJson IS NULL
+   - Agrège par heure: dimension="pro", quantity=SUM(20 messages)
+   - Émet vers Marketplace Metering Service API
+   
    POST https://marketplaceapi.microsoft.com/api/usageEvent
    Body: {
      resourceId: "subscription-guid",
@@ -73,31 +88,19 @@ Azure Marketplace utilise un modèle de **facturation à la consommation** (mete
      messageTime: "2024-01-01T11:00:05Z"
    }
           ↓
-6. Azure Marketplace agrège et facture (mensuel)
+6. ✅ SaaS Accelerator met à jour MeteredAuditLogs
+   UPDATE MeteredAuditLogs SET ResponseJson = '{
+     "usageEventId": "event-guid",
+     "status": "Accepted",
+     "messageTime": "2024-01-01T11:00:05Z"
+   }'
+   WHERE ... AND ResponseJson IS NULL
+          ↓
+7. Azure Marketplace agrège et facture (mensuel)
    Base: $9.99
    Usage: 20 messages (300 inclus) → Pas de dépassement
    Total: $9.99
-          ↓
-7. ✅ Application insert dans MeteredAuditLogs (audit local)
-   {
-     RequestJson: {dimension: "pro", quantity: 20, ...},
-     ResponseJson: {usageEventId: "event-guid", status: "Accepted", ...},
-     StatusCode: 200
-   }
 ```
-     effectiveStartTime: "2024-01-15T10:30:00Z"
-   }
-          ↓
-4. ✅ Azure Marketplace répond avec usageEventId
-   Response: {
-     usageEventId: "event-guid",
-     status: "Accepted",
-     messageTime: "2024-01-15T10:30:01Z",
-     resourceId: "subscription-guid",
-     quantity: 1,
-     dimension: "pro"
-   }
-          ↓
 5. 📝 Application INSERT dans MeteredAuditLogs (audit local uniquement)
    - RequestJson: événement envoyé
    - ResponseJson: réponse de l'API (avec usageEventId)
