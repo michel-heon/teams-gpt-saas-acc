@@ -4,47 +4,57 @@
     "version": "1.0.0",
     "id": "${{TEAMS_APP_ID}}",
     "developer": {
-        "name": "My App, Inc.",
-        "websiteUrl": "https://www.example.com",
-        "privacyUrl": "https://www.example.com/privacy",
-        "termsOfUseUrl": "https://www.example.com/termofuse"
+        "name": "Cotechnoe Inc.",
+        "websiteUrl": "https://www.cotechnoe.net",
+        "privacyUrl": "https://sac-02-portal.azurewebsites.net/privacy",
+        "termsOfUseUrl": "https://sac-02-portal.azurewebsites.net/terms"
     },
     "icons": {
         "color": "color.png",
         "outline": "outline.png"
     },
     "name": {
-        "short": "teams-gpt-saas-acc${{APP_NAME_SUFFIX}}",
-        "full": "full name for teams-gpt-saas-acc"
+        "short": "Assistant GPT Teams",
+        "full": "Teams GPT - Assistant IA pour Microsoft Teams"
     },
     "description": {
-        "short": "short description for teams-gpt-saas-acc",
-        "full": "full description for teams-gpt-saas-acc"
+        "short": "Assistant IA intelligent propulsé par GPT-4 pour vos conversations d'équipe",
+        "full": "L'Assistant GPT Teams est une IA conversationnelle intelligente propulsée par Azure OpenAI GPT-4. Obtenez des réponses instantanées à vos questions, analysez des documents, générez du contenu et boostez la productivité de votre équipe directement dans Microsoft Teams. Disponible avec des plans tarifaires SaaS flexibles sur Azure Marketplace avec facturation à l'usage."
     },
     "accentColor": "#FFFFFF",
     "bots": [
         {
             "botId": "${{BOT_ID}}",
             "scopes": [
+                "personal",
                 "team",
-                "groupChat",
-                "personal"
+                "groupChat"
             ],
-            "supportsFiles": false,
+            "supportsFiles": true,
             "isNotificationOnly": false,
             "commandLists": [
                 {
                     "scopes": [
-                        "personal"
+                        "personal",
+                        "team",
+                        "groupChat"
                     ],
                     "commands": [
                         {
-                            "title": "How can you help me?",
-                            "description": "How can you help me?"
+                            "title": "Aide",
+                            "description": "Obtenir de l'aide sur l'utilisation de l'Assistant GPT Teams"
                         },
                         {
-                            "title": "How to develop agent for Teams?",
-                            "description": "How can I develop agents with Microsoft 365 Agents Toolkit?"
+                            "title": "Poser une question",
+                            "description": "Posez-moi n'importe quelle question - je suis propulsé par GPT-4"
+                        },
+                        {
+                            "title": "Analyser un document",
+                            "description": "Téléversez un document pour une analyse IA"
+                        },
+                        {
+                            "title": "Générer du contenu",
+                            "description": "Générez des courriels, rapports ou tout contenu dont vous avez besoin"
                         }
                     ]
                 }
@@ -58,5 +68,8 @@
         "identity",
         "messageTeamMembers"
     ],
-    "validDomains": []
+    "validDomains": [
+        "sac-02-portal.azurewebsites.net",
+        "*.azurewebsites.net"
+    ]
 }

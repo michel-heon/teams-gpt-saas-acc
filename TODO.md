@@ -3,31 +3,39 @@
 > Plan d'implémentation sur 4 semaines pour transformer Teams GPT Agent en solution SaaS Marketplace transactionnelle.
 > 
 > **Référence:** Issue #1 (Epic) - [🚀 Transformer Teams GPT Agent en solution SaaS Marketplace](https://github.com/michel-heon/teams-gpt-saas-acc/issues/1)
+> 
+> **État actuel** : Phase 3 - Configuration Azure Marketplace et Certification  
+> **Dernière mise à jour** : 3 novembre 2025  
+> **Version actuelle** : v1.2.9-scheduler-playground
+
+**📖 Documentation complète** : Voir [doc/PROJECT-STATUS-NOV-2025.md](doc/PROJECT-STATUS-NOV-2025.md) pour une synthèse complète du projet.
 
 ---
 
-## 🏗️ Phase 1 : Déploiement SaaS Accelerator (Semaine 1)
+## ✅ Phase 1 : Déploiement SaaS Accelerator (Semaine 1) - TERMINÉE
 
-**Référence:** [Issue #2 - Phase 1 : Déploiement SaaS Accelerator](https://github.com/michel-heon/teams-gpt-saas-acc/issues/2)
+**Référence:** [Issue #2 - Phase 1 : Déploiement SaaS Accelerator](https://github.com/michel-heon/teams-gpt-saas-acc/issues/2) - 🟢 CLOSED  
+**Durée** : 1 semaine (30 octobre 2025)  
+**Version** : v1.2.8
 
 ### 1.1 Setup infrastructure Azure
-- [ ] Créer groupe de ressources `rg-teams-gpt-saas`
-- [ ] Déployer SaaS Accelerator via ARM templates
-- [ ] Configurer SQL Database avec schéma
-- [ ] Setup Key Vault pour secrets
-- [ ] Configurer Application Insights
+- [x] Créer groupe de ressources `rg-saasaccel-teams-gpt-02`
+- [x] Déployer SaaS Accelerator via ARM templates (18 min 13 sec)
+- [x] Configurer SQL Database avec schéma (16 ressources déployées)
+- [x] Setup Key Vault pour secrets
+- [x] Configurer Application Insights
 
 ### 1.2 Configuration Partner Center
-- [ ] Créer compte partenaire Microsoft (si nécessaire)
-- [ ] Créer nouvelle offre SaaS "Teams GPT Assistant"
-- [ ] Configurer les informations de base
-- [ ] Préparer assets marketing (logos, descriptions)
+- [x] Créer compte partenaire Microsoft (si nécessaire)
+- [x] Créer nouvelle offre SaaS "Teams GPT Assistant"
+- [x] Configurer les informations de base
+- [x] Préparer assets marketing (logos, descriptions)
 
 ### 1.3 Configuration des plans tarifaires
-- [ ] Plan Starter : 9.99€/mois, 1000 messages inclus
-- [ ] Plan Professional : 49.99€/mois, 10000 messages inclus
-- [ ] Plan Enterprise : 199.99€/mois, 50000 messages inclus
-- [ ] Configurer dimensions de facturation ("messages", "premium_messages")
+- [x] Plan Development : $0/mois, illimité
+- [x] Plan Starter : $0/mois, 50 messages @ $0.02/msg overage
+- [x] Plan Professional : $9.99/mois, 300 messages @ $0.015/msg overage
+- [x] Plan Pro Plus : $49.99/mois, 1500 messages @ $0.01/msg overage
 
 ### 1.4 Tests infrastructure
 - [ ] Tester la landing page d'abonnement
@@ -43,51 +51,62 @@
 
 ---
 
-## 🔗 Phase 2 : Intégration Teams GPT (Semaine 2)
+## ✅ Phase 2 : Intégration Teams GPT (Semaine 2) - TERMINÉE
 
-**Référence:** [Issue #3 - Phase 2 : Intégration Teams GPT avec SaaS Accelerator](https://github.com/michel-heon/teams-gpt-saas-acc/issues/3)
+**Référence:** [Issue #3 - Phase 2 : Intégration Teams GPT avec SaaS Accelerator](https://github.com/michel-heon/teams-gpt-saas-acc/issues/3) - 🟢 CLOSED  
+**Durée** : 2 jours (31 octobre - 2 novembre 2025)  
+**Version** : v1.2.9-scheduler-playground
 
 ### 2.1 Création du service d'intégration SaaS
-- [ ] Créer `src/services/saasIntegration.js`
-- [ ] Implémenter la connexion à la DB SaaS Accelerator
-- [ ] Créer les méthodes de vérification d'abonnement
-- [ ] Implémenter le tracking d'usage des messages
+- [x] Créer `src/services/saasIntegration.js`
+- [x] Implémenter la connexion à la DB SaaS Accelerator (Managed Identity)
+- [x] Créer les méthodes de vérification d'abonnement
+- [x] Implémenter le tracking d'usage des messages (enregistrement dans MeteredAuditLogs)
 
 ### 2.2 Modification de l'agent Teams
-- [ ] Ajouter le middleware de vérification d'abonnement
-- [ ] Modifier le handler de messages pour tracker l'usage
-- [ ] Implémenter la logique de limitation par plan
-- [ ] Gérer les cas d'erreur (pas d'abonnement, limite atteinte)
+- [x] Ajouter le middleware de vérification d'abonnement (`subscriptionCheck.js`)
+- [x] Ajouter le middleware de tracking d'usage (`usageTracking.js`)
+- [x] Intégrer middleware dans `app.js`
+- [x] Gérer les cas d'erreur (pas d'abonnement, erreur DB)
 
 ### 2.3 Extension du modèle de données
-- [ ] Ajouter colonne `TeamsUserId` à la table Subscriptions
-- [ ] Ajouter colonne `TeamsConversationId` si nécessaire
-- [ ] Créer index sur `TeamsUserId`
-- [ ] Optionnel : Créer table `TeamsMessageLogs` pour logs détaillés
+- [x] Ajouter colonne `TeamsUserId` à la table Subscriptions
+- [x] Créer index sur `TeamsUserId`
+- [x] Migration SQL testée et validée (002-teams-integration.sql)
 
 ### 2.4 Configuration et secrets
-- [ ] Ajouter variables d'environnement pour SaaS integration
-- [ ] Configurer connection string vers SaaS Accelerator DB
-- [ ] Tester la connectivité entre les composants
+- [x] Ajouter variables d'environnement pour SaaS integration
+- [x] Configurer connection string vers SaaS Accelerator DB (Managed Identity)
+- [x] Tester la connectivité entre les composants
+- [x] Configuration pour 3 modes (Playground, Local, Sandbox)
 
-### 2.5 Gestion des messages premium
-- [ ] Implémenter la logique de classification des messages
-- [ ] Gérer les messages avec pièces jointes (premium)
-- [ ] Gérer les messages longs (> 1000 caractères)
-- [ ] Configurer la facturation différentielle (0.01€ standard, 0.02€ premium)
+### 2.5 Architecture corrigée (2 novembre 2025)
+- [x] Suppression de `usageAggregationService.js` (335 lignes - architecture incorrecte)
+- [x] Simplification de `saasIntegration.js` (enregistrement uniquement)
+- [x] Adoption SaaS Accelerator Metered Scheduler (émission vers API)
+- [x] Documentation complète de l'architecture corrigée
 
-### 2.6 Tests Phase 2
-- [ ] Tests unitaires du service d'intégration
-- [ ] Tests d'intégration avec la DB SaaS Accelerator
-- [ ] Tests du middleware d'abonnement
-- [ ] Tests de limitation par plan
-- [ ] Tests de la classification des messages premium
+### 2.6 Outils de diagnostic créés (14 scripts)
+- [x] Scripts de production (Makefile): message-diag, setup-playground, link-teams-user, reset-playground
+- [x] Scripts utilitaires: check-schema, check-hourly-aggregation, check-marketplace-config, etc.
+- [x] Documentation complète des scripts (328 lignes)
+
+### 2.7 Tests et validation Phase 2
+- [x] Tests unitaires du service d'intégration
+- [x] Tests d'intégration avec la DB SaaS Accelerator
+- [x] Tests du middleware d'abonnement
+- [x] Configuration Scheduler (Playground-meter, hourly)
+- [x] 9 messages enregistrés dans MeteredAuditLogs
+- [⏳] Validation émission automatique Scheduler (Issue #6)
 
 **Livrables Phase 2:**
-- ✅ Agent Teams GPT modifié avec tracking d'usage
-- ✅ Service d'intégration SaaS opérationnel
-- ✅ Extension de la base de données
-- ✅ Tests validés
+- ✅ Agent Teams GPT modifié avec tracking d'usage (simplifié)
+- ✅ Service d'intégration SaaS opérationnel (enregistrement uniquement)
+- ✅ Extension de la base de données (TeamsUserId)
+- ✅ 14 scripts de diagnostic créés
+- ✅ 6 documents d'architecture majeurs créés/mis à jour
+- ✅ Tests 11/12 réussis (92%)
+- ⏳ Validation finale en attente (Issue #6)
 
 ---
 
