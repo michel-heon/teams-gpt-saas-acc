@@ -5,9 +5,9 @@
     "id": "${{TEAMS_APP_ID}}",
     "developer": {
         "name": "Cotechnoe Inc.",
-        "websiteUrl": "https://www.cotechnoe.net",
-        "privacyUrl": "https://sac-02-portal.azurewebsites.net/privacy",
-        "termsOfUseUrl": "https://sac-02-portal.azurewebsites.net/terms"
+        "websiteUrl": "https://www.cotechnoe.com",
+        "privacyUrl": "https://github.com/Cotechnoe/Assistant-GPT-Teams/blob/main/PRIVACY.md",
+        "termsOfUseUrl": "https://github.com/Cotechnoe/Assistant-GPT-Teams/blob/main/TERMS.md"
     },
     "icons": {
         "color": "color.png",
