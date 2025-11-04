@@ -2,10 +2,26 @@
 
 ## 📋 Guide pour Administrateurs IT
 
-**Version** : 1.3.0  
-**Date** : 3 novembre 2025  
+**Version** : 1.3.1  
+**Date** : 4 novembre 2025  
 **Public cible** : Administrateurs Microsoft 365 et IT  
 **Temps d'installation** : 15-30 minutes
+
+---
+
+## 📑 Table des Matières
+
+1. [🎯 Objectif](#-objectif)
+2. [📦 Prérequis](#-prérequis)
+3. [🔐 Étape 0 : Activation de l'Abonnement SaaS](#-étape-0--activation-de-labonnement-saas)
+4. [🔧 Méthode 1 : Installation par Chargement Latéral (Test/Développement)](#-méthode-1--installation-par-chargement-latéral-testdéveloppement)
+5. [📥 Méthode 2 : Installation via Teams Admin Center (Recommandée)](#-méthode-2--installation-via-teams-admin-center-recommandée)
+6. [✅ Validation de l'Installation](#-validation-de-linstallation)
+7. [🔍 Surveillance et Gestion](#-surveillance-et-gestion)
+8. [🚨 Résolution de Problèmes](#-résolution-de-problèmes)
+9. [📞 Support](#-support)
+10. [📚 Annexes](#-annexes)
+11. [📄 Informations Légales](#-informations-légales)
 
 ---
 
@@ -17,16 +33,18 @@ Ce guide vous accompagne dans l'installation de **Teams GPT - Assistant IA** dan
 
 ### Prérequis Organisationnels
 
+- ✅ **Abonnement Microsoft 365** : Licence Microsoft 365 Business ou Enterprise active
+- ✅ **Abonnement Microsoft Teams** : Teams inclus et activé dans votre organisation
 - ✅ **Abonnement Azure actif** avec un plan Teams GPT souscrit via Azure Marketplace
 - ✅ **Permissions administrateur** :
   - Administrateur Microsoft 365 Global ou
   - Administrateur Teams ou
   - Permissions de gestion des applications Teams
-- ✅ **Politique d'applications Teams** permettant les applications personnalisées (si sideloading)
+- ✅ **Politique d'applications Teams** permettant les applications personnalisées (si chargement latéral)
 
 ### Prérequis Techniques
 
-- ✅ **Microsoft 365 tenant** avec Microsoft Teams activé
+- ✅ **Microsoft 365 tenant** avec Microsoft Teams activé et opérationnel
 - ✅ **Navigateur web moderne** : Edge, Chrome, Firefox (version récente)
 - ✅ **Accès au portail** :
   - [Teams Admin Center](https://admin.teams.microsoft.com)
@@ -78,31 +96,104 @@ Une fois l'abonnement activé :
 
 ---
 
-## 📥 Méthode 1 : Installation via Teams Admin Center (Recommandée)
+## 📥 Méthode 1 : Installation par Chargement Latéral (Test/Développement)
 
-Cette méthode est recommandée pour les organisations avec plusieurs utilisateurs.
+Cette méthode permet aux utilisateurs d'installer l'application individuellement. Utile pour les tests ou organisations de petite taille.
+
+### Prérequis Chargement Latéral
+
+1. **Vérifier la politique de chargement latéral** :
+   - Teams Admin Center → **Teams apps** → **Setup policies**
+   - Vérifier que **Upload custom apps** est activé
+
+2. **Si désactivé, l'activer** :
+   - Modifier la politique appropriée
+   - Basculer **Upload custom apps** sur **On**
+   - Cliquer sur **Save**
+   - Attendre la propagation (quelques heures)
 
 ### Étape 1.1 : Télécharger le Package
 
-1. **Accéder au Customer Portal** :
-   - URL : https://sac-02-portal.azurewebsites.net
+Télécharger `appPackage.zip` depuis le [dépôt GitHub](https://github.com/Cotechnoe/Assistant-GPT-Teams/blob/main/appPackage.zip) ou depuis le Customer Portal.
+
+### Étape 1.2 : Distribuer aux Utilisateurs
+
+**Option A : Email** :
+```
+Objet : Installation de l'Assistant GPT Teams
+
+Bonjour,
+
+Veuillez installer l'Assistant GPT Teams en suivant ces étapes :
+
+1. Téléchargez le package : [lien vers GitHub ou Customer Portal]
+2. Ouvrez Microsoft Teams (application desktop ou web)
+3. Cliquez sur "Apps" dans la barre latérale gauche
+4. Cliquez sur "Manage your apps" (en bas à gauche)
+5. Cliquez sur "Upload an app" puis "Upload a custom app"
+6. Sélectionnez le fichier téléchargé (appPackage.zip)
+7. Cliquez sur "Add" dans la fenêtre qui apparaît
+
+L'application sera disponible dans votre liste d'applications Teams.
+
+Support : support@cotechnoe.com
+```
+
+**Option B : Sharepoint/OneDrive** :
+- Uploadez le fichier `appPackage.zip` sur un Sharepoint ou OneDrive partagé
+- Envoyez le lien avec les instructions
+
+### Étape 1.3 : Installation par l'Utilisateur
+
+1. **Ouvrir Microsoft Teams** :
+   - Application desktop (recommandé) ou web (teams.microsoft.com)
+
+2. **Accéder aux applications** :
+   - Cliquez sur **Apps** (icône dans la barre latérale gauche)
+
+3. **Téléverser l'application** :
+   - En bas à gauche, cliquez sur **Manage your apps**
+   - Cliquez sur **Upload an app**
+   - Sélectionnez **Upload a custom app**
+   - Naviguez vers le fichier `appPackage.zip`
+   - Cliquez sur **Open**
+
+4. **Confirmer l'installation** :
+   - Une fenêtre affiche les détails de l'application
+   - Vérifiez les permissions demandées
+   - Cliquez sur **Add** (ou **Ajouter**)
+
+5. **Accéder à l'application** :
+   - L'application apparaît dans **Apps** → **Built for your org**
+   - Cliquez sur l'icône pour ouvrir le chat
+
+---
+
+## 🔧 Méthode 2 : Installation via Teams Admin Center (Recommandée)
+
+Cette méthode est recommandée pour les organisations avec plusieurs utilisateurs.
+
+### Étape 2.1 : Télécharger le Package
+
+1. **Accéder au dépôt GitHub ou Customer Portal** :
+   - GitHub : [Assistant GPT Teams](https://github.com/Cotechnoe/Assistant-GPT-Teams/blob/main/appPackage.zip)
+   - Ou Customer Portal : https://sac-02-portal.azurewebsites.net
    - Connectez-vous avec votre compte Microsoft 365
 
 2. **Télécharger le package** :
-   - Naviguez vers **Ma Souscription** ou **Installation**
-   - Cliquez sur **Télécharger le package Teams** (fichier `appPackage.zip`)
+   - Cliquez sur **Download** ou **Télécharger le package Teams** (fichier `appPackage.zip`)
    - Sauvegardez le fichier sur votre ordinateur
 
-### Étape 1.2 : Upload dans Teams Admin Center
+### Étape 2.2 : Téléverser dans Teams Admin Center
 
 1. **Ouvrir Teams Admin Center** :
-   - Accédez à https://admin.teams.microsoft.com
+   - Accédez au [Teams Admin Center](https://admin.teams.microsoft.com)
    - Connectez-vous avec votre compte administrateur
 
 2. **Naviguer vers les applications** :
    - Menu de gauche → **Teams apps** → **Manage apps**
 
-3. **Uploader le package** :
+3. **Téléverser le package** :
    - Cliquez sur **Upload** (en haut de la page)
    - Sélectionnez **Upload an app to your org's app catalog**
    - Sélectionnez le fichier `appPackage.zip` téléchargé précédemment
@@ -112,7 +203,7 @@ Cette méthode est recommandée pour les organisations avec plusieurs utilisateu
    - Le système valide automatiquement le package (10-30 secondes)
    - Vérifiez qu'aucune erreur n'apparaît
 
-### Étape 1.3 : Configurer les Permissions
+### Étape 2.3 : Configurer les Permissions
 
 1. **Localiser l'application** :
    - Dans **Manage apps**, recherchez "Assistant GPT Teams" ou "Teams GPT"
@@ -128,7 +219,7 @@ Cette méthode est recommandée pour les organisations avec plusieurs utilisateu
    - Onglet **Status** : Vérifier que l'app est **Allowed**
    - Si bloquée, cliquer sur **Allow** ou **Unblock**
 
-### Étape 1.4 : Créer une Politique de Configuration
+### Étape 2.4 : Créer une Politique de Configuration
 
 1. **Naviguer vers les politiques** :
    - Menu de gauche → **Teams apps** → **Setup policies**
@@ -148,7 +239,7 @@ Cette méthode est recommandée pour les organisations avec plusieurs utilisateu
    - Définissez l'ordre d'affichage
    - Cliquez sur **Add** puis **Save**
 
-### Étape 1.5 : Assigner aux Utilisateurs
+### Étape 2.5 : Assigner aux Utilisateurs
 
 1. **Assigner la politique** :
    - Si politique Global : Tous les utilisateurs ont accès automatiquement
@@ -163,12 +254,6 @@ Cette méthode est recommandée pour les organisations avec plusieurs utilisateu
    - Les utilisateurs verront l'app dans leur Teams automatiquement
 
 ---
-
-## 🔧 Méthode 2 : Installation par Sideloading (Test/Développement)
-
-Cette méthode permet aux utilisateurs d'installer l'application individuellement. Utile pour les tests ou organisations de petite taille.
-
-### Prérequis Sideloading
 
 1. **Vérifier la politique de sideloading** :
    - Teams Admin Center → **Teams apps** → **Setup policies**
@@ -205,7 +290,7 @@ Veuillez installer l'Assistant GPT Teams en suivant ces étapes :
 
 L'application sera disponible dans votre liste d'applications Teams.
 
-Support : support@cotechnoe.net
+Support : support@cotechnoe.com
 ```
 
 **Option B : Sharepoint/OneDrive** :
@@ -321,7 +406,7 @@ Support : support@cotechnoe.net
 
 ---
 
-## 🚨 Troubleshooting
+## 🚨 Résolution de Problèmes
 
 ### Problème 1 : L'application n'apparaît pas dans Teams
 
@@ -348,20 +433,20 @@ Support : support@cotechnoe.net
      - Vider le cache (Settings → Clear cache)
      - Se reconnecter
 
-### Problème 2 : Erreur lors de l'upload du package
+### Problème 2 : Erreur lors du téléversement du package
 
-**Symptôme** : Message d'erreur lors de l'upload dans Teams Admin Center ou par sideloading.
+**Symptôme** : Message d'erreur lors du téléversement dans Teams Admin Center ou par chargement latéral.
 
 **Solutions** :
 
 1. **Erreur "Invalid package"** :
    - Vérifier que le fichier téléchargé est bien un `.zip`
-   - Télécharger à nouveau le package depuis le Customer Portal
+   - Télécharger à nouveau le package depuis GitHub ou le Customer Portal
    - Ne pas extraire/recompresser le fichier manuellement
 
 2. **Erreur "Manifest validation failed"** :
    - Le package est corrompu ou incompatible
-   - Contacter le support : support@cotechnoe.net
+   - Contacter le support : support@cotechnoe.com
    - Fournir la capture d'écran de l'erreur
 
 3. **Erreur "Already exists"** :
@@ -398,20 +483,20 @@ Support : support@cotechnoe.net
 
 ### Problème 4 : "Upload custom apps" est grisé
 
-**Symptôme** : Impossible d'activer le sideloading dans la politique.
+**Symptôme** : Impossible d'activer le chargement latéral dans la politique.
 
 **Solutions** :
 
 1. **Vérifier les permissions organisationnelles** :
-   - Certaines organisations désactivent le sideloading par politique de sécurité
+   - Certaines organisations désactivent le chargement latéral par politique de sécurité
    - Contacter votre administrateur Microsoft 365 Global
 
 2. **Utiliser la méthode Admin Center** :
-   - Le sideloading n'est pas nécessaire si vous installez via Admin Center (Méthode 1)
+   - Le chargement latéral n'est pas nécessaire si vous installez via Admin Center (Méthode 2)
 
 3. **Demande d'exception** :
    - Documenter la raison (test, développement)
-   - Soumettre une demande à l'équipe sécurité/compliance
+   - Soumettre une demande à l'équipe sécurité/conformité
 
 ---
 
@@ -419,14 +504,13 @@ Support : support@cotechnoe.net
 
 ### Ressources en Ligne
 
-- **Documentation officielle** : https://sac-02-portal.azurewebsites.net/help
-- **FAQ** : https://sac-02-portal.azurewebsites.net/faq
-- **Vidéos de démonstration** : [À venir - Todo 8]
+- **Documentation support** : [SUPPORT.md](https://github.com/Cotechnoe/Assistant-GPT-Teams/blob/main/SUPPORT.md)
+- **Guide d'installation** : [INSTALLATION.md](https://github.com/Cotechnoe/Assistant-GPT-Teams/blob/main/INSTALLATION.md)
+- **Vidéos de démonstration** : [À venir]
 
 ### Contact Support Cotechnoe
 
-- **Email** : support@cotechnoe.net
-- **Portail de support** : https://sac-02-portal.azurewebsites.net/support
+- **Email** : support@cotechnoe.com
 - **Heures d'ouverture** : Lundi-Vendredi, 9h-17h (EST)
 
 ### Informations à Fournir
@@ -494,19 +578,19 @@ Ces permissions sont **en lecture seule** et respectent les politiques de confid
 - **Teams Admin Center** : https://admin.teams.microsoft.com
 - **Azure Portal** : https://portal.azure.com
 - **Microsoft 365 Admin** : https://admin.microsoft.com
-- **Support Cotechnoe** : support@cotechnoe.net
+- **Support Cotechnoe** : support@cotechnoe.com
 
 ---
 
 ## 📄 Informations Légales
 
-- **Politique de confidentialité** : https://sac-02-portal.azurewebsites.net/privacy
-- **Conditions d'utilisation** : https://sac-02-portal.azurewebsites.net/terms
+- **Politique de confidentialité** : [PRIVACY.md](https://github.com/Cotechnoe/Assistant-GPT-Teams/blob/main/PRIVACY.md)
+- **Conditions d'utilisation** : [TERMS.md](https://github.com/Cotechnoe/Assistant-GPT-Teams/blob/main/TERMS.md)
 - **Conformité** : RGPD, SOC 2, Azure Canada Central
 
 ---
 
-**Version du document** : 1.3.0  
-**Dernière mise à jour** : 3 novembre 2025  
+**Version du document** : 1.3.1  
+**Dernière mise à jour** : 4 novembre 2025  
 **Auteur** : Cotechnoe Inc.  
-**Copyright** © 2025 Cotechnoe Inc. Tous droits réservés.
+**Copyright** &copy; 2025 Cotechnoe Inc. Tous droits réservés.
