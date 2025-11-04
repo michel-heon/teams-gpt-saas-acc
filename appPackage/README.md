@@ -51,9 +51,9 @@ make help
 
 ### Color Icon (color.png)
 
-- **Dimensions** : 192×192 pixels
-- **Symbole** : 120×120 pixels maximum (centré)
-- **Padding** : 36 pixels autour du symbole
+- **Dimensions** : 256×256 pixels (recommandé Microsoft : 216-350px)
+- **Symbole** : 160×160 pixels maximum (centré)
+- **Padding** : 48 pixels autour du symbole
 - **Format** : PNG avec transparence (RGBA)
 - **Design actuel** : Bulle de conversation avec étoile IA
 - **Couleurs** :
@@ -61,7 +61,7 @@ make help
   - Accent : Bleu clair `#50E6FF`
   - Texte "GPT" : Blanc
 
-> **Note** : Teams applique automatiquement des coins arrondis et une forme hexagonale pour les bots.
+> **Note** : Microsoft Teams recommande entre 216×216 et 350×350 pixels. Notre 256×256 est optimal (puissance de 2). Teams applique automatiquement des coins arrondis et une forme hexagonale pour les bots.
 
 ### Outline Icon (outline.png)
 
