@@ -263,4 +263,49 @@ check-prereqs: ## Vérifier les prérequis d'installation
 	@if [ -f "../m365agents.yml" ]; then echo "$(GREEN)✓ m365agents.yml trouvé$(NC)"; fi
 	@echo "$(GREEN)✓ Tous les prérequis sont satisfaits$(NC)"
 
+##@ Distribution
+
+sync-distribution: ## Synchroniser le répertoire de distribution vers Assistant-GPT-Teams
+	@echo "$(BLUE)Synchronisation vers Assistant-GPT-Teams...$(NC)"
+	@if [ ! -d "/media/psf/Developpement/00-GIT/Assistant-GPT-Teams" ]; then \
+		echo "$(RED)✗ Dépôt Assistant-GPT-Teams introuvable$(NC)"; \
+		echo "$(YELLOW)  Chemin attendu: /media/psf/Developpement/00-GIT/Assistant-GPT-Teams$(NC)"; \
+		exit 1; \
+	fi
+	@if [ ! -f "../appPackage/build/appPackage.dev.zip" ]; then \
+		echo "$(RED)✗ Package Teams introuvable$(NC)"; \
+		echo "$(YELLOW)  Chemin attendu: appPackage/build/appPackage.dev.zip$(NC)"; \
+		echo "$(YELLOW)  Exécutez d'abord: make provision-dev$(NC)"; \
+		exit 1; \
+	fi
+	@echo "$(YELLOW)→ Copie du contenu du répertoire distribution-snapshot...$(NC)"
+	@rsync -av --exclude='appPackage.dev.zip' ../appPackage/distribution-snapshot/ /media/psf/Developpement/00-GIT/Assistant-GPT-Teams/
+	@echo "$(YELLOW)→ Copie du package Teams (renommé en appPackage.zip)...$(NC)"
+	@cp -v ../appPackage/build/appPackage.dev.zip /media/psf/Developpement/00-GIT/Assistant-GPT-Teams/appPackage.zip
+	@echo "$(GREEN)✓ Fichiers copiés$(NC)"
+	@echo ""
+	@echo "$(YELLOW)→ Commit et push vers GitHub...$(NC)"
+	@cd /media/psf/Developpement/00-GIT/Assistant-GPT-Teams && \
+		git add . && \
+		git status --short && \
+		git commit -m "chore: Sync distribution files from teams-gpt-saas-acc" && \
+		git push origin main
+	@echo "$(GREEN)✓ Synchronisation terminée$(NC)"
+	@echo ""
+	@echo "$(BLUE)📦 Distribution mise à jour :$(NC)"
+	@echo "   https://github.com/Cotechnoe/Assistant-GPT-Teams"
+
+update-distribution-snapshot: ## Mettre à jour le snapshot avec le package Teams actuel
+	@echo "$(BLUE)Mise à jour du snapshot de distribution...$(NC)"
+	@if [ ! -f "../appPackage/build/appPackage.dev.zip" ]; then \
+		echo "$(RED)✗ Package appPackage.dev.zip manquant$(NC)"; \
+		echo "$(YELLOW)  Exécuter d'abord: make provision-dev$(NC)"; \
+		exit 1; \
+	fi
+	@echo "$(YELLOW)→ Copie du package Teams...$(NC)"
+	@cp -v ../appPackage/build/appPackage.dev.zip ../appPackage/distribution-snapshot/
+	@echo "$(GREEN)✓ Snapshot mis à jour$(NC)"
+	@echo ""
+	@echo "$(YELLOW)💡 Prochaine étape: make sync-distribution$(NC)"
+
 .DEFAULT_GOAL := help
