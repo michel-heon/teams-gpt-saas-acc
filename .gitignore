@@ -16,4 +16,7 @@ node_modules/
 .DS_Store
 
 # Dev tool directories
-/devTools/
+devTools/
+
+# Distribution repository clone (public repo)
+Assistant-GPT-Teams/
