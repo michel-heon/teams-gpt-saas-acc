@@ -122,8 +122,8 @@ Pour plus de détails, consultez notre [Politique de Confidentialité](https://g
 
 ## 📚 Documentation Supplémentaire
 
-- **Guide d'installation** : Inclus dans votre Customer Portal après souscription
-- **FAQ** : https://www.cotechnoe.com/faq
+- **Guide d'installation** : [INSTALLATION.md](https://github.com/Cotechnoe/Assistant-GPT-Teams/blob/main/INSTALLATION.md)
+- **FAQ** : [Guide d'installation - Section Résolution de Problèmes](https://github.com/Cotechnoe/Assistant-GPT-Teams/blob/main/INSTALLATION.md#-résolution-de-problèmes)
 - **Politique de confidentialité** : [PRIVACY.md](https://github.com/Cotechnoe/Assistant-GPT-Teams/blob/main/PRIVACY.md)
 - **Conditions d'utilisation** : [TERMS.md](https://github.com/Cotechnoe/Assistant-GPT-Teams/blob/main/TERMS.md)
 

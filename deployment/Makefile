@@ -203,6 +203,23 @@ info: ## Afficher les informations sur les environnements
 	else \
 		echo "  $(RED)✗ Package manquant$(NC)"; \
 	fi
+	@echo ""
+	@echo "$(YELLOW)Distribution (Assistant-GPT-Teams) :$(NC)"
+	@echo "  - Snapshot : appPackage/distribution-snapshot/"
+	@echo "  - Cible    : /media/psf/Developpement/00-GIT/Assistant-GPT-Teams"
+	@if [ -d "/media/psf/Developpement/00-GIT/Assistant-GPT-Teams" ]; then \
+		echo "  $(GREEN)✓ Repository cible trouvé$(NC)"; \
+	else \
+		echo "  $(RED)✗ Repository cible introuvable$(NC)"; \
+	fi
+	@if [ -f "../appPackage/distribution-snapshot/INSTALLATION.md" ]; then \
+		echo "  $(GREEN)✓ Snapshot prêt pour distribution$(NC)"; \
+	else \
+		echo "  $(YELLOW)⚠ Snapshot incomplet$(NC)"; \
+	fi
+	@echo "  $(BLUE)💡 Commandes :$(NC)"
+	@echo "     make update-distribution-snapshot  # Mettre à jour le snapshot"
+	@echo "     make sync-distribution            # Synchroniser vers GitHub"
 
 logs: ## Afficher les logs du Toolkit
 	@echo "$(BLUE)Derniers logs Microsoft 365 Agents Toolkit :$(NC)"

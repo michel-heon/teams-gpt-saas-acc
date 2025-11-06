@@ -171,18 +171,19 @@ Support : support@cotechnoe.com
 
 ## 🔧 Méthode 2 : Installation via Teams Admin Center (Recommandée)
 
-Cette méthode est recommandée pour les organisations avec plusieurs utilisateurs.
+Cette méthode est recommandée pour les organisations avec plusieurs utilisateurs. Elle permet un déploiement centralisé et automatique de l'application pour tous les utilisateurs ou groupes ciblés.
 
-### Étape 2.1 : Télécharger le Package
+### Étape 2.1 : Télécharger le Package d'Installation
 
-1. **Accéder au dépôt GitHub ou Customer Portal** :
-   - GitHub : [Assistant GPT Teams](https://github.com/Cotechnoe/Assistant-GPT-Teams/blob/main/appPackage.zip)
-   - Ou Customer Portal : https://sac-02-portal.azurewebsites.net
+1. **Accéder au Customer Portal** :
+   - URL : https://sac-02-portal.azurewebsites.net
    - Connectez-vous avec votre compte Microsoft 365
 
 2. **Télécharger le package** :
-   - Cliquez sur **Download** ou **Télécharger le package Teams** (fichier `appPackage.zip`)
-   - Sauvegardez le fichier sur votre ordinateur
+   - Cliquez sur **Télécharger le fichier manifest.zip** dans la section Installation
+   - Sauvegardez le fichier `appPackage.zip` sur votre ordinateur
+
+**Alternative** : Télécharger depuis [GitHub](https://github.com/Cotechnoe/Assistant-GPT-Teams/blob/main/appPackage.zip)
 
 ### Étape 2.2 : Téléverser dans Teams Admin Center
 
@@ -252,74 +253,6 @@ Cette méthode est recommandée pour les organisations avec plusieurs utilisateu
 2. **Attendre la propagation** :
    - Délai : 4-48 heures (généralement 4-6 heures)
    - Les utilisateurs verront l'app dans leur Teams automatiquement
-
----
-
-1. **Vérifier la politique de sideloading** :
-   - Teams Admin Center → **Teams apps** → **Setup policies**
-   - Vérifier que **Upload custom apps** est activé
-
-2. **Si désactivé, l'activer** :
-   - Modifier la politique appropriée
-   - Basculer **Upload custom apps** sur **On**
-   - Cliquer sur **Save**
-   - Attendre la propagation (quelques heures)
-
-### Étape 2.1 : Télécharger le Package
-
-Même procédure que Méthode 1, Étape 1.1 :
-- Télécharger `appPackage.zip` depuis le Customer Portal
-
-### Étape 2.2 : Distribuer aux Utilisateurs
-
-**Option A : Email** :
-```
-Objet : Installation de l'Assistant GPT Teams
-
-Bonjour,
-
-Veuillez installer l'Assistant GPT Teams en suivant ces étapes :
-
-1. Téléchargez le package : [lien vers Customer Portal ou fichier joint]
-2. Ouvrez Microsoft Teams (application desktop ou web)
-3. Cliquez sur "Apps" dans la barre latérale gauche
-4. Cliquez sur "Manage your apps" (en bas à gauche)
-5. Cliquez sur "Upload an app" puis "Upload a custom app"
-6. Sélectionnez le fichier téléchargé (appPackage.zip)
-7. Cliquez sur "Add" dans la fenêtre qui apparaît
-
-L'application sera disponible dans votre liste d'applications Teams.
-
-Support : support@cotechnoe.com
-```
-
-**Option B : Sharepoint/OneDrive** :
-- Uploadez le fichier `appPackage.zip` sur un Sharepoint ou OneDrive partagé
-- Envoyez le lien avec les instructions
-
-### Étape 2.3 : Installation par l'Utilisateur
-
-1. **Ouvrir Microsoft Teams** :
-   - Application desktop (recommandé) ou web (teams.microsoft.com)
-
-2. **Accéder aux applications** :
-   - Cliquez sur **Apps** (icône dans la barre latérale gauche)
-
-3. **Uploader l'application** :
-   - En bas à gauche, cliquez sur **Manage your apps**
-   - Cliquez sur **Upload an app**
-   - Sélectionnez **Upload a custom app**
-   - Naviguez vers le fichier `appPackage.zip`
-   - Cliquez sur **Open**
-
-4. **Confirmer l'installation** :
-   - Une fenêtre affiche les détails de l'application
-   - Vérifiez les permissions demandées
-   - Cliquez sur **Add** (ou **Ajouter**)
-
-5. **Accéder à l'application** :
-   - L'application apparaît dans **Apps** → **Built for your org**
-   - Cliquez sur l'icône pour ouvrir le chat
 
 ---
 
