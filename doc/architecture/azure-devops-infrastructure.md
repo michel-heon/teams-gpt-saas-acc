@@ -49,67 +49,65 @@ Cette architecture DevOps vise à fournir :
 
 ### Diagramme de haut niveau
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                            GITHUB REPOSITORY                             │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐                  │
-│  │    Code      │  │   Bicep/IaC  │  │   Workflows  │                  │
-│  │    src/      │  │   infra/     │  │  .github/    │                  │
-│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘                  │
-└─────────┼──────────────────┼──────────────────┼─────────────────────────┘
-          │                  │                  │
-          ▼                  ▼                  ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         GITHUB ACTIONS (CI/CD)                           │
-│  ┌──────────────────────────────────────────────────────────────────┐   │
-│  │  Workflow: CI/CD Pipeline                                        │   │
-│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌──────────┐           │   │
-│  │  │  Build  │→ │  Test   │→ │  Scan   │→ │  Deploy  │           │   │
-│  │  └─────────┘  └─────────┘  └─────────┘  └──────────┘           │   │
-│  └──────────────────────────────────────────────────────────────────┘   │
-└─────────────┬───────────────────────────────────────────────────────────┘
-              │
-              ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         AZURE SUBSCRIPTION                               │
-│                    (0f1323ea-0f29-4187-9872-e1cf15d677de)                │
-│                                                                           │
-│  ┌───────────────────────────────────────────────────────────────────┐  │
-│  │  Resource Group: rg-teams-gpt-shared                              │  │
-│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐           │  │
-│  │  │ Key Vault    │  │  ACR         │  │ Log Analytics│           │  │
-│  │  │ kv-teamsgpt  │  │ acrteamsgpt  │  │ law-teamsgpt │           │  │
-│  │  └──────────────┘  └──────────────┘  └──────────────┘           │  │
-│  └───────────────────────────────────────────────────────────────────┘  │
-│                                                                           │
-│  ┌───────────────────────────────────────────────────────────────────┐  │
-│  │  Resource Group: rg-teams-gpt-dev                                 │  │
-│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐           │  │
-│  │  │ App Service  │  │  SQL DB      │  │ App Insights │           │  │
-│  │  │ bot-dev      │  │ sql-dev      │  │ ai-dev       │           │  │
-│  │  └──────┬───────┘  └──────────────┘  └──────────────┘           │  │
-│  │         │ Staging Slot                                           │  │
-│  │         └─────────────────────────────────────────────           │  │
-│  └───────────────────────────────────────────────────────────────────┘  │
-│                                                                           │
-│  ┌───────────────────────────────────────────────────────────────────┐  │
-│  │  Resource Group: rg-teams-gpt-prod                                │  │
-│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐           │  │
-│  │  │ App Service  │  │  SQL DB      │  │ App Insights │           │  │
-│  │  │ bot-prod     │  │ sql-prod     │  │ ai-prod      │           │  │
-│  │  └──────┬───────┘  └──────────────┘  └──────────────┘           │  │
-│  │         │ Staging Slot                                           │  │
-│  │         └─────────────────────────────────────────────           │  │
-│  └───────────────────────────────────────────────────────────────────┘  │
-│                                                                           │
-│  ┌───────────────────────────────────────────────────────────────────┐  │
-│  │  Resource Group: rg-saas-accelerator                              │  │
-│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐           │  │
-│  │  │ Portal App   │  │ Admin App    │  │  Scheduler   │           │  │
-│  │  │ sac-portal   │  │ sac-admin    │  │ sac-schedule │           │  │
-│  │  └──────────────┘  └──────────────┘  └──────────────┘           │  │
-│  └───────────────────────────────────────────────────────────────────┘  │
-└───────────────────────────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph GitHub["GitHub Repository"]
+        Code["Code<br/>src/"]
+        IaC["Bicep/IaC<br/>infra/"]
+        Workflows["Workflows<br/>.github/"]
+    end
+
+    subgraph GitHubActions["GitHub Actions CI/CD"]
+        Pipeline["Pipeline Workflow"]
+        Build["Build"] --> Test["Test"]
+        Test --> Scan["Security Scan"]
+        Scan --> Deploy["Deploy"]
+    end
+
+    subgraph Azure["Azure Subscription"]
+        subgraph Shared["rg-teams-gpt-shared"]
+            KeyVault["Key Vault"]
+            ACR["Container Registry"]
+            LogAnalytics["Log Analytics"]
+        end
+
+        subgraph Dev["rg-teams-gpt-dev"]
+            AppDev["App Service<br/>+ Staging Slot"]
+            SQLDev["SQL Database"]
+            AIDev["App Insights"]
+        end
+
+        subgraph Prod["rg-teams-gpt-prod"]
+            AppProd["App Service<br/>+ Staging Slot"]
+            SQLProd["SQL Database<br/>+ Geo-replication"]
+            AIProd["App Insights"]
+        end
+
+        subgraph SaaS["rg-saas-accelerator"]
+            Portal["Portal App"]
+            Admin["Admin App"]
+            Scheduler["Scheduler"]
+        end
+    end
+
+    Code --> Pipeline
+    IaC --> Pipeline
+    Workflows --> Pipeline
+    
+    Pipeline --> Deploy
+    Deploy --> AppDev
+    Deploy --> AppProd
+    
+    AppDev -.-> SQLDev
+    AppDev -.-> KeyVault
+    AppDev -.-> AIDev
+    
+    AppProd -.-> SQLProd
+    AppProd -.-> KeyVault
+    AppProd -.-> AIProd
+    
+    AIDev --> LogAnalytics
+    AIProd --> LogAnalytics
 ```
 
 ---
@@ -119,116 +117,96 @@ Cette architecture DevOps vise à fournir :
 ### 1. **Resource Groups**
 
 #### rg-teams-gpt-shared (Services partagés)
+
 **Région** : Canada Central  
-**Tags** :
-```json
-{
-  "Environment": "Shared",
-  "Project": "Teams-GPT",
-  "ManagedBy": "IaC",
-  "CostCenter": "Engineering"
-}
-```
+
+**Tags** : Environment=Shared, Project=Teams-GPT, ManagedBy=IaC
 
 **Ressources** :
-- **Azure Key Vault** (`kv-teamsgpt-shared`)
+
+- **Azure Key Vault**
   - SKU : Standard
   - Soft delete : 90 jours
   - Purge protection : Activé
   - Secrets : Bot credentials, DB passwords, API keys
   - Access policies : Managed Identity uniquement
 
-- **Azure Container Registry** (`acrteamsgpt`)
+- **Azure Container Registry**
   - SKU : Standard
   - Geo-replication : Canada East (backup)
   - Content trust : Activé
   - Webhook : Notification deploy sur nouveau tag
 
-- **Log Analytics Workspace** (`law-teamsgpt`)
+- **Log Analytics Workspace**
   - Retention : 90 jours
   - Daily cap : 5 GB
   - Linked services : App Insights, App Services
 
 #### rg-teams-gpt-dev (Développement)
+
 **Région** : Canada Central
 
 **Ressources** :
-- **App Service Plan** (`asp-teamsgpt-dev`)
+
+- **App Service Plan**
   - SKU : S1 Standard (1 core, 1.75 GB RAM)
   - OS : Linux
   - Reserved instance : Non
   - Auto-scale : Désactivé
 
-- **App Service** (`bot997b9c` → renommer `bot-teamsgpt-dev`)
+- **App Service**
   - Runtime : Node.js 20 LTS
   - Always On : Activé
   - Health check : `/health`
-  - Deployment slots :
-    - `production` (actif)
-    - `staging` (pour blue/green)
+  - Deployment slots : `production` (actif), `staging` (pour blue/green)
   - Managed Identity : System-assigned
-  - Application Settings :
-    ```bash
-    NODE_ENV=development
-    APPLICATIONINSIGHTS_CONNECTION_STRING=@KeyVault(ai-connection-string)
-    BOT_APP_ID=@KeyVault(bot-app-id-dev)
-    BOT_APP_SECRET=@KeyVault(bot-app-secret-dev)
-    ```
+  - Application Settings : Références Key Vault pour secrets (bot credentials, connection strings)
 
-- **Azure SQL Database** (`sql-teamsgpt-dev`)
+- **Azure SQL Database**
   - Tier : Standard S0 (10 DTU)
   - Backup : Point-in-time restore 7 jours
   - Geo-replication : Non
   - Firewall : Azure services + CI/CD runner IP
   - Connection pooling : Activé (max 100)
 
-- **Application Insights** (`ai-teamsgpt-dev`)
+- **Application Insights**
   - Type : Node.js
   - Sampling : 100% (dev)
   - Retention : 30 jours
-  - Alertes :
-    - Response time > 5s
-    - Error rate > 5%
-    - Failed dependency calls
+  - Alertes : Response time, Error rate, Dependency failures
 
 #### rg-teams-gpt-prod (Production)
+
 **Région** : Canada Central  
 **Backup Region** : Canada East
 
 **Ressources** :
-- **App Service Plan** (`asp-teamsgpt-prod`)
-  - SKU : P1v3 Premium (2 cores, 8 GB RAM)
-  - Auto-scale : 2-10 instances
-  - Scale rules :
-    - CPU > 70% → Scale out
-    - CPU < 30% → Scale in
-    - Queue length > 50 → Scale out
 
-- **App Service** (`bot-teamsgpt-prod`)
+- **App Service Plan**
+  - SKU : P1v3 Premium (2 cores, 8 GB RAM)
+  - Auto-scale : 2-10 instances basé sur CPU et queue length
+
+- **App Service**
   - Runtime : Node.js 20 LTS
   - Deployment slots : `production`, `staging`
   - Traffic routing : 100% production (swap après validation staging)
-  - HTTPS only : Activé
-  - TLS 1.2 minimum
+  - HTTPS only : Activé, TLS 1.2 minimum
   - CORS : teams.microsoft.com uniquement
 
-- **Azure SQL Database** (`sql-teamsgpt-prod`)
+- **Azure SQL Database**
   - Tier : Standard S1 (20 DTU)
   - Active geo-replication : Canada East
   - Backup : Point-in-time restore 35 jours
   - Advanced Threat Protection : Activé
   - Auditing : Activé → Log Analytics
 
-- **Application Insights** (`ai-teamsgpt-prod`)
+- **Application Insights**
   - Sampling : 10% (optimisation coûts)
   - Retention : 90 jours
-  - Alertes critiques :
-    - Availability < 99.5%
-    - Response time P95 > 3s
-    - Exception rate > 1%
-    - Dependency failures
+  - Alertes critiques : Availability, Response time, Exception rate, Dependencies
 
 #### rg-saas-accelerator (SaaS Marketplace)
+
 **Note** : Existant, géré séparément
 
 ---
@@ -237,80 +215,72 @@ Cette architecture DevOps vise à fournir :
 
 ### Architecture du Pipeline
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                    TRIGGER (GitHub Events)                          │
-│  • Push to main/develop                                             │
-│  • Pull Request                                                     │
-│  • Tag creation (v*)                                                │
-│  • Manual workflow_dispatch                                         │
-└────────────────────────────┬────────────────────────────────────────┘
-                             │
-                             ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│  STAGE 1: BUILD & TEST (5-8 min)                                    │
-│  ┌───────────────────────────────────────────────────────────────┐ │
-│  │ 1.1 Checkout code                            [30s]            │ │
-│  │ 1.2 Setup Node.js 20                         [45s]            │ │
-│  │ 1.3 Cache npm dependencies                   [15s]            │ │
-│  │ 1.4 npm ci (install)                         [2min]           │ │
-│  │ 1.5 npm run lint                             [30s]            │ │
-│  │ 1.6 npm run test:unit                        [1min]           │ │
-│  │ 1.7 npm run test:integration                 [2min]           │ │
-│  │ 1.8 npm run test:coverage                    [1min]           │ │
-│  │ 1.9 Upload coverage to Codecov               [30s]            │ │
-│  └───────────────────────────────────────────────────────────────┘ │
-└────────────────────────────┬────────────────────────────────────────┘
-                             │
-                             ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│  STAGE 2: SECURITY SCAN (3-5 min)                                   │
-│  ┌───────────────────────────────────────────────────────────────┐ │
-│  │ 2.1 Snyk dependency scan                     [1min]           │ │
-│  │ 2.2 npm audit                                [30s]            │ │
-│  │ 2.3 CodeQL SAST scan                         [2min]           │ │
-│  │ 2.4 Trivy container scan (if Docker)         [1min]           │ │
-│  │ 2.5 Generate SARIF report                    [30s]            │ │
-│  └───────────────────────────────────────────────────────────────┘ │
-└────────────────────────────┬────────────────────────────────────────┘
-                             │
-                             ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│  STAGE 3: BUILD ARTIFACT (2-3 min)                                  │
-│  ┌───────────────────────────────────────────────────────────────┐ │
-│  │ 3.1 npm run build (if needed)                [1min]           │ │
-│  │ 3.2 Create deployment package                [30s]            │ │
-│  │     - Exclude: tests/, .git/, *.md                            │ │
-│  │     - Include: src/, node_modules/, package.json              │ │
-│  │ 3.3 Generate manifest.json version           [15s]            │ │
-│  │ 3.4 Zip artifact                             [30s]            │ │
-│  │ 3.5 Upload artifact to GitHub                [45s]            │ │
-│  └───────────────────────────────────────────────────────────────┘ │
-└────────────────────────────┬────────────────────────────────────────┘
-                             │
-         ┌───────────────────┴────────────────────┐
-         │                                        │
-         ▼                                        ▼
-┌─────────────────────────┐          ┌─────────────────────────┐
-│  DEPLOY DEV             │          │  DEPLOY PROD            │
-│  (Auto on main push)    │          │  (Manual approval)      │
-│  ┌───────────────────┐  │          │  ┌───────────────────┐  │
-│  │ 4.1 Download pkg  │  │          │  │ 5.1 Download pkg  │  │
-│  │ 4.2 Deploy staging│  │          │  │ 5.2 Deploy staging│  │
-│  │ 4.3 Health check  │  │          │  │ 5.3 Smoke tests   │  │
-│  │ 4.4 Swap slots    │  │          │  │ 5.4 Load test     │  │
-│  │ 4.5 Smoke test    │  │          │  │ 5.5 ⏸ APPROVAL    │  │
-│  │ 4.6 Notify Slack  │  │          │  │ 5.6 Swap to prod  │  │
-│  └───────────────────┘  │          │  │ 5.7 Monitor 5min  │  │
-│  Duration: 3-4 min      │          │  │ 5.8 Notify Slack  │  │
-└─────────────────────────┘          │  └───────────────────┘  │
-                                     │  Duration: 8-10 min     │
-                                     └─────────────────────────┘
+```mermaid
+graph TB
+    subgraph Triggers["⚡ Triggers"]
+        Push["Push main/develop"]
+        PR["Pull Request"]
+        Tag["Tag v*"]
+        Manual["Manual"]
+    end
+
+    subgraph Stage1["📦 Build & Test<br/>(5-8 min)"]
+        S1_1["Checkout & Setup"]
+        S1_2["npm ci & cache"]
+        S1_3["Lint & Tests"]
+        S1_4["Coverage Report"]
+    end
+
+    subgraph Stage2["🔒 Security Scan<br/>(3-5 min)"]
+        S2_1["Snyk Scan"]
+        S2_2["npm audit"]
+        S2_3["CodeQL SAST"]
+        S2_4["SARIF Report"]
+    end
+
+    subgraph Stage3["🎁 Build Artifact<br/>(2-3 min)"]
+        S3_1["npm build"]
+        S3_2["Create Package"]
+        S3_3["Upload Artifact"]
+    end
+
+    subgraph DeployDev["🚀 Deploy DEV<br/>(Auto - 3-4 min)"]
+        D1["Deploy Staging"]
+        D2["Health Check"]
+        D3["Swap Slots"]
+        D4["Notify"]
+    end
+
+    subgraph DeployProd["🚀 Deploy PROD<br/>(Manual - 8-10 min)"]
+        P1["Deploy Staging"]
+        P2["Smoke Tests"]
+        P3["⏸ APPROVAL"]
+        P4["Swap Production"]
+        P5["Monitor 5min"]
+        P6["Notify"]
+    end
+
+    Triggers --> Stage1
+    S1_1 --> S1_2 --> S1_3 --> S1_4
+    
+    Stage1 --> Stage2
+    S2_1 --> S2_2 --> S2_3 --> S2_4
+    
+    Stage2 --> Stage3
+    S3_1 --> S3_2 --> S3_3
+    
+    Stage3 --> DeployDev
+    Stage3 --> DeployProd
+    
+    D1 --> D2 --> D3 --> D4
+    P1 --> P2 --> P3 --> P4 --> P5 --> P6
 ```
 
 ### Workflow Files
 
-#### `.github/workflows/ci-cd.yml` (Principal)
+#### `.github/workflows/ci-cd.yml` (Exemple illustratif)
+
+**Note**: Voir le fichier complet dans le repository pour l'implémentation détaillée.
 
 ```yaml
 name: CI/CD Pipeline
@@ -318,291 +288,108 @@ name: CI/CD Pipeline
 on:
   push:
     branches: [main, develop]
-    paths-ignore:
-      - '**.md'
-      - 'doc/**'
   pull_request:
-    branches: [main]
   workflow_dispatch:
 
 env:
   NODE_VERSION: '20.x'
-  AZURE_WEBAPP_NAME_DEV: bot-teamsgpt-dev
-  AZURE_WEBAPP_NAME_PROD: bot-teamsgpt-prod
 
 jobs:
   build-and-test:
-    name: Build & Test
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          fetch-depth: 0  # Full history for SonarCloud
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version: '20.x'
           cache: 'npm'
       
-      - name: Install dependencies
-        run: npm ci
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run test:unit
+      - run: npm run test:integration
+      - run: npm run test:coverage
       
-      - name: Lint code
-        run: npm run lint
-      
-      - name: Run unit tests
-        run: npm run test:unit
-      
-      - name: Run integration tests
-        run: npm run test:integration
-        env:
-          SAAS_DB_SERVER: ${{ secrets.TEST_DB_SERVER }}
-          SAAS_DB_NAME: test-db
-      
-      - name: Generate coverage report
-        run: npm run test:coverage
-      
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
+      - uses: codecov/codecov-action@v3
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage/lcov.info
-          flags: unittests
-          name: teams-bot-coverage
-      
-      - name: Build application
-        run: npm run build --if-present
       
       - name: Create deployment package
         run: |
-          mkdir -p deploy
-          zip -r deploy/bot-app-${{ github.sha }}.zip . \
-            -x "node_modules/*" \
-            -x "tests/*" \
-            -x ".git/*" \
-            -x "*.md" \
-            -x "doc/*" \
-            -x ".github/*"
-          
-          # Reinstall production dependencies only
-          npm ci --only=production
-          
-          zip -ur deploy/bot-app-${{ github.sha }}.zip node_modules/
+          # Création du package de déploiement
+          # Exclusion: tests/, .git/, *.md, doc/
+          # Production dependencies uniquement
+          ...
       
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: bot-package
-          path: deploy/bot-app-${{ github.sha }}.zip
           retention-days: 30
 
   security-scan:
-    name: Security Scan
     runs-on: ubuntu-latest
     needs: build-and-test
-    
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Run Snyk scan
-        uses: snyk/actions/node@master
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          args: --severity-threshold=high
-      
-      - name: Run npm audit
-        run: npm audit --audit-level=high
-        continue-on-error: true
-      
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v2
-        with:
-          languages: javascript
-      
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v2
+      - uses: snyk/actions/node@master
+      - run: npm audit --audit-level=high
+      - uses: github/codeql-action/init@v2
+      - uses: github/codeql-action/analyze@v2
 
   deploy-dev:
-    name: Deploy to Development
     runs-on: ubuntu-latest
     needs: [build-and-test, security-scan]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    environment:
-      name: development
-      url: https://bot-teamsgpt-dev.azurewebsites.net
-    
+    if: github.ref == 'refs/heads/main'
+    environment: development
     steps:
-      - name: Download artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: bot-package
-      
-      - name: Login to Azure
-        uses: azure/login@v1
+      - uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS_DEV }}
       
-      - name: Deploy to staging slot
-        uses: azure/webapps-deploy@v2
+      - uses: azure/webapps-deploy@v2
         with:
-          app-name: ${{ env.AZURE_WEBAPP_NAME_DEV }}
+          app-name: bot-teamsgpt-dev
           slot-name: staging
-          package: bot-app-${{ github.sha }}.zip
       
-      - name: Health check staging
+      - name: Health check & Swap
         run: |
-          sleep 30
-          response=$(curl -s -o /dev/null -w "%{http_code}" \
-            https://bot-teamsgpt-dev-staging.azurewebsites.net/health)
-          
-          if [ $response -ne 200 ]; then
-            echo "Health check failed: $response"
-            exit 1
-          fi
-          echo "Health check passed: $response"
-      
-      - name: Swap slots (staging → production)
-        run: |
-          az webapp deployment slot swap \
-            --name ${{ env.AZURE_WEBAPP_NAME_DEV }} \
-            --resource-group rg-teams-gpt-dev \
-            --slot staging \
-            --target-slot production
-      
-      - name: Smoke test production
-        run: |
-          sleep 10
-          curl -f https://bot-teamsgpt-dev.azurewebsites.net/health || exit 1
-      
-      - name: Notify Slack
-        if: always()
-        uses: slackapi/slack-github-action@v1
-        with:
-          webhook: ${{ secrets.SLACK_WEBHOOK }}
-          payload: |
-            {
-              "text": "Deployment to DEV: ${{ job.status }}",
-              "blocks": [
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "*Deployment DEV*: ${{ job.status }}\n*Commit*: ${{ github.sha }}\n*Author*: ${{ github.actor }}"
-                  }
-                }
-              ]
-            }
+          # Health check staging
+          # Swap staging → production
+          # Smoke test production
+          # Notify Slack
+          ...
 
   deploy-prod:
-    name: Deploy to Production
     runs-on: ubuntu-latest
     needs: [build-and-test, security-scan]
     if: startsWith(github.ref, 'refs/tags/v')
-    environment:
-      name: production
-      url: https://bot-teamsgpt-prod.azurewebsites.net
-    
+    environment: production
     steps:
-      - name: Download artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: bot-package
-      
-      - name: Login to Azure
-        uses: azure/login@v1
+      - uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS_PROD }}
       
-      - name: Deploy to staging slot
-        uses: azure/webapps-deploy@v2
+      - uses: azure/webapps-deploy@v2
         with:
-          app-name: ${{ env.AZURE_WEBAPP_NAME_PROD }}
+          app-name: bot-teamsgpt-prod
           slot-name: staging
-          package: bot-app-${{ github.sha }}.zip
       
-      - name: Run smoke tests on staging
-        run: |
-          sleep 30
-          npm ci
-          npm run test:smoke -- --url=https://bot-teamsgpt-prod-staging.azurewebsites.net
+      - name: Smoke tests
+        run: npm run test:smoke
       
-      - name: Run load tests (optional)
-        run: |
-          # k6 run tests/load/spike-test.js
-          echo "Load tests placeholder"
-      
-      - name: ⏸ Wait for approval
+      - name: ⏸ Manual Approval
         uses: trstringer/manual-approval@v1
         with:
-          secret: ${{ github.TOKEN }}
-          approvers: michel-heon,devops-team
+          approvers: devops-team
           minimum-approvals: 1
-          issue-title: "Deploy v${{ github.ref_name }} to PRODUCTION"
-          issue-body: |
-            Please review staging environment before approving production deployment.
-            
-            Staging URL: https://bot-teamsgpt-prod-staging.azurewebsites.net
-            Version: ${{ github.ref_name }}
-            Commit: ${{ github.sha }}
       
-      - name: Swap to production
+      - name: Swap to production & Monitor
         run: |
-          az webapp deployment slot swap \
-            --name ${{ env.AZURE_WEBAPP_NAME_PROD }} \
-            --resource-group rg-teams-gpt-prod \
-            --slot staging \
-            --target-slot production
-      
-      - name: Monitor for 5 minutes
-        run: |
-          for i in {1..10}; do
-            response=$(curl -s -o /dev/null -w "%{http_code}" \
-              https://bot-teamsgpt-prod.azurewebsites.net/health)
-            
-            if [ $response -ne 200 ]; then
-              echo "Health check failed at iteration $i: $response"
-              # Trigger rollback
-              az webapp deployment slot swap \
-                --name ${{ env.AZURE_WEBAPP_NAME_PROD }} \
-                --resource-group rg-teams-gpt-prod \
-                --slot production \
-                --target-slot staging
-              exit 1
-            fi
-            
-            echo "Health check $i/10: OK"
-            sleep 30
-          done
-      
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: deploy/bot-app-${{ github.sha }}.zip
-          generate_release_notes: true
-      
-      - name: Notify Slack
-        if: always()
-        uses: slackapi/slack-github-action@v1
-        with:
-          webhook: ${{ secrets.SLACK_WEBHOOK }}
-          payload: |
-            {
-              "text": "🚀 Production Deployment: ${{ job.status }}",
-              "blocks": [
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "*Production Deployment*: ${{ job.status }}\n*Version*: ${{ github.ref_name }}\n*Commit*: ${{ github.sha }}\n*Deployed by*: ${{ github.actor }}"
-                  }
-                }
-              ]
-            }
+          # Swap staging → production
+          # Monitor health 5 minutes
+          # Rollback automatique si échec
+          # Create GitHub Release
+          # Notify Slack
+          ...
 ```
 
 ---
@@ -653,9 +440,9 @@ Developer Workstation
 │                           ↓                                     │
 │  ┌─────────────────────────────────────────────────────────┐   │
 │  │  Azure Front Door / Application Gateway                 │   │
-│  │  • WAF Rules (OWASP Top 10)                             │   │
-│  │  • DDoS Protection Standard                             │   │
-│  │  • SSL/TLS termination                                  │   │
+│  │  * WAF Rules (OWASP Top 10)                             │   │
+│  │  * DDoS Protection Standard                             │   │
+│  │  * SSL/TLS termination                                  │   │
 │  └──────────────────────┬──────────────────────────────────┘   │
 │                         │                                       │
 └─────────────────────────┼───────────────────────────────────────┘
@@ -779,10 +566,10 @@ resource nsg 'Microsoft.Network/networkSecurityGroups@2023-04-01' = {
 │                           ▼                                  │
 │         ┌──────────────────────────────────┐                │
 │         │   Application Insights           │                │
-│         │   • Traces (requests, deps)      │                │
-│         │   • Metrics (custom events)      │                │
-│         │   • Exceptions                   │                │
-│         │   • Live Metrics Stream          │                │
+│         │   * Traces (requests, deps)      │                │
+│         │   * Metrics (custom events)      │                │
+│         │   * Exceptions                   │                │
+│         │   * Live Metrics Stream          │                │
 │         └──────────────┬───────────────────┘                │
 │                        │                                     │
 └────────────────────────┼─────────────────────────────────────┘
@@ -790,9 +577,9 @@ resource nsg 'Microsoft.Network/networkSecurityGroups@2023-04-01' = {
                          ▼
          ┌──────────────────────────────────┐
          │    Log Analytics Workspace       │
-         │    • Kusto queries               │
-         │    • 90 days retention           │
-         │    • 5 GB daily cap              │
+         │    * Kusto queries               │
+         │    * 90 days retention           │
+         │    * 5 GB daily cap              │
          └──────────────┬───────────────────┘
                         │
         ┌───────────────┴────────────────┐
@@ -801,9 +588,9 @@ resource nsg 'Microsoft.Network/networkSecurityGroups@2023-04-01' = {
 ┌────────────────┐            ┌────────────────┐
 │ Azure Monitor  │            │   Grafana      │
 │ Alerts         │            │   Dashboard    │
-│ • Email        │            │   • Business   │
-│ • Slack        │            │     metrics    │
-│ • PagerDuty    │            │   • Custom viz │
+│ * Email        │            │   * Business   │
+│ * Slack        │            │     metrics    │
+│ * PagerDuty    │            │   * Custom viz │
 └────────────────┘            └────────────────┘
 ```
 
@@ -1121,116 +908,70 @@ resource autoScaleSettings 'Microsoft.Insights/autoscalesettings@2022-10-01' = {
 
 ### Diagramme de déploiement (Deployment Diagram)
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│                        DEVELOPER                                 │
-│  ┌────────────┐         ┌────────────┐                          │
-│  │  VS Code   │────────▶│   GitHub   │                          │
-│  │   Local    │  Push   │ Repository │                          │
-│  └────────────┘         └──────┬─────┘                          │
-└─────────────────────────────────┼────────────────────────────────┘
-                                  │
-                    ┌─────────────┴─────────────┐
-                    │   GitHub Actions Runner   │
-                    │   (ubuntu-latest)         │
-                    │                           │
-                    │  ┌──────────────────┐    │
-                    │  │  npm ci          │    │
-                    │  │  npm run test    │    │
-                    │  │  npm run lint    │    │
-                    │  │  zip package     │    │
-                    │  └────────┬─────────┘    │
-                    └───────────┼───────────────┘
-                                │
-                    ┌───────────┴───────────┐
-                    │                       │
-                    ▼                       ▼
-        ┌───────────────────┐   ┌───────────────────┐
-        │  App Service DEV  │   │  App Service PROD │
-        │                   │   │                   │
-        │  ┌─────────────┐ │   │  ┌─────────────┐ │
-        │  │ Staging     │ │   │  │ Staging     │ │
-        │  │ Slot        │ │   │  │ Slot        │ │
-        │  └──────┬──────┘ │   │  └──────┬──────┘ │
-        │         │ Swap   │   │         │ Swap   │
-        │         ▼        │   │         ▼        │
-        │  ┌─────────────┐ │   │  ┌─────────────┐ │
-        │  │ Production  │ │   │  │ Production  │ │
-        │  │ Slot        │ │   │  │ Slot        │ │
-        │  └─────────────┘ │   │  └─────────────┘ │
-        └─────────┬─────────┘   └─────────┬───────┘
-                  │                       │
-                  └───────────┬───────────┘
-                              │
-                  ┌───────────┴───────────┐
-                  │                       │
-                  ▼                       ▼
-         ┌─────────────┐         ┌─────────────┐
-         │  Azure SQL  │         │  Key Vault  │
-         │  Database   │         │   Secrets   │
-         └─────────────┘         └─────────────┘
+```mermaid
+graph TB
+    subgraph Developer["👨‍💻 Developer"]
+        VSCode["VS Code Local"]
+        GitHub["GitHub Repository"]
+        VSCode -->|git push| GitHub
+    end
+    
+    subgraph CICD["⚙️ GitHub Actions Runner"]
+        Build["npm ci<br/>npm test<br/>npm lint<br/>zip package"]
+        GitHub -->|webhook trigger| Build
+    end
+    
+    Build -->|deploy| DevEnv
+    Build -->|deploy| ProdEnv
+    
+    subgraph DevEnv["Development Environment"]
+        DevStaging["Staging Slot"]
+        DevProd["Production Slot"]
+        DevStaging -->|swap| DevProd
+    end
+    
+    subgraph ProdEnv["Production Environment"]
+        ProdStaging["Staging Slot"]
+        ProdProd["Production Slot"]
+        ProdStaging -->|swap| ProdProd
+    end
+    
+    DevProd --> AzureSQL
+    ProdProd --> AzureSQL
+    DevProd --> KeyVault
+    ProdProd --> KeyVault
+    
+    AzureSQL[("Azure SQL<br/>Database")]
+    KeyVault[("Key Vault<br/>Secrets")]
 ```
 
 ### Flux de données (Data Flow)
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│                      TEAMS USER                                  │
-│                          │                                       │
-│                          ▼                                       │
-│              ┌─────────────────────┐                            │
-│              │  Microsoft Teams    │                            │
-│              │  (teams.microsoft.  │                            │
-│              │   com)              │                            │
-│              └──────────┬──────────┘                            │
-└─────────────────────────┼───────────────────────────────────────┘
-                          │ HTTPS (443)
-                          │ Bot Framework Protocol
-                          ▼
-┌──────────────────────────────────────────────────────────────────┐
-│                    AZURE RESOURCES                               │
-│                                                                  │
-│  ┌────────────────────────────────────────────────────────────┐ │
-│  │  Azure Bot Service                                         │ │
-│  │  • Authentication                                          │ │
-│  │  • Message routing                                         │ │
-│  └──────────────────────┬─────────────────────────────────────┘ │
-│                         │                                        │
-│                         ▼                                        │
-│  ┌────────────────────────────────────────────────────────────┐ │
-│  │  App Service (Node.js Bot)                                 │ │
-│  │  ┌──────────────────────────────────────────────────────┐ │ │
-│  │  │  1. Receive activity                                  │ │ │
-│  │  │  2. subscriptionCheckMiddleware ──┐                   │ │ │
-│  │  │  3. usageTrackingMiddleware       │                   │ │ │
-│  │  │  4. AI Handler (Teams AI)         │                   │ │ │
-│  │  └──────────────┬────────────────────┘                   │ │ │
-│  └─────────────────┼──────────────────────────────────────────┘ │
-│                    │                                             │
-│       ┌────────────┼────────────────────────┐                   │
-│       │            │                        │                   │
-│       ▼            ▼                        ▼                   │
-│  ┌─────────┐  ┌─────────┐            ┌─────────────┐          │
-│  │ Azure   │  │ Azure   │            │ Azure OpenAI│          │
-│  │ SQL DB  │  │ Key     │            │ Service     │          │
-│  │         │  │ Vault   │            │             │          │
-│  │ Tables: │  │         │            │ GPT-4       │          │
-│  │ • Subscr│  │ Secrets:│            │             │          │
-│  │ • Metered│ │ • BotPwd│            │             │          │
-│  │ • Message│ │ • DBPwd │            │             │          │
-│  └────┬────┘  └─────────┘            └──────┬──────┘          │
-│       │                                     │                  │
-│       └───────┬─────────────────────────────┘                  │
-│               │                                                │
-│               ▼                                                │
-│  ┌────────────────────────────────────────────────────────┐   │
-│  │  Application Insights                                  │   │
-│  │  • Request telemetry                                   │   │
-│  │  • Custom events (metering, subscriptions)             │   │
-│  │  • Exceptions                                          │   │
-│  │  • Dependencies (SQL, OpenAI)                          │   │
-│  └────────────────────────────────────────────────────────┘   │
-└──────────────────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    User["👤 Teams User"] -->|HTTPS 443<br/>Bot Framework Protocol| Teams["Microsoft Teams<br/>teams.microsoft.com"]
+    
+    Teams --> BotService["Azure Bot Service<br/>🔐 Authentication<br/>📬 Message routing"]
+    
+    BotService --> AppService
+    
+    subgraph AppService["App Service Node.js Bot"]
+        Activity["1. Receive activity"] --> Middleware
+        Middleware["2. subscriptionCheckMiddleware<br/>3. usageTrackingMiddleware"] --> AIHandler["4. AI Handler<br/>Teams AI Library"]
+    end
+    
+    AIHandler --> SQL
+    AIHandler --> KeyVault
+    AIHandler --> OpenAI
+    
+    SQL[("Azure SQL<br/>Subscriptions<br/>MeteredDimensions<br/>Messages")]
+    KeyVault[("Azure Key Vault<br/>Bot credentials<br/>DB passwords")]
+    OpenAI["Azure OpenAI<br/>GPT-4"]
+    
+    SQL --> AppInsights
+    OpenAI --> AppInsights
+    
+    AppInsights["📊 Application Insights<br/>Request telemetry<br/>Custom events<br/>Exceptions<br/>Dependencies"]
 ```
 
 ### Séquence de déploiement (Deployment Sequence)
