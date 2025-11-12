@@ -347,7 +347,7 @@ jobs:
       
       - uses: azure/webapps-deploy@v2
         with:
-          app-name: bot-teamsgpt-dev
+          app-name: ${{ env.AZURE_WEBAPP_NAME_DEV }}
           slot-name: staging
       
       - name: Health check & Swap
@@ -370,7 +370,7 @@ jobs:
       
       - uses: azure/webapps-deploy@v2
         with:
-          app-name: bot-teamsgpt-prod
+          app-name: ${{ env.AZURE_WEBAPP_NAME_PROD }}
           slot-name: staging
       
       - name: Smoke tests
@@ -542,8 +542,8 @@ resource nsg 'Microsoft.Network/networkSecurityGroups@2023-04-01' = {
 
 | Service | Identity Type | Permissions |
 |---------|--------------|-------------|
-| bot-teamsgpt-dev | System-assigned | Key Vault Reader, SQL DB Contributor |
-| bot-teamsgpt-prod | System-assigned | Key Vault Reader, SQL DB Contributor |
+| App Service (Dev) | System-assigned | Key Vault Reader, SQL DB Contributor |
+| App Service (Prod) | System-assigned | Key Vault Reader, SQL DB Contributor |
 | GitHub Actions (dev) | Service Principal | Resource Group Contributor (dev only) |
 | GitHub Actions (prod) | Service Principal | Resource Group Contributor (prod only) |
 
@@ -704,30 +704,30 @@ alerts:
 ```bash
 # Swap inverse (production → staging)
 az webapp deployment slot swap \
-  --name bot-teamsgpt-prod \
-  --resource-group rg-teams-gpt-prod \
+  --name <APP_NAME> \
+  --resource-group <RESOURCE_GROUP> \
   --slot production \
   --target-slot staging
 
 # Vérifier health
-curl -f https://bot-teamsgpt-prod.azurewebsites.net/health
+curl -f https://<APP_NAME>.azurewebsites.net/health
 ```
 
 #### Restore SQL Database (< 15 minutes)
 ```bash
 # Point-in-time restore
 az sql db restore \
-  --resource-group rg-teams-gpt-prod \
-  --server sql-teamsgpt-prod \
+  --resource-group <RESOURCE_GROUP> \
+  --server <SQL_SERVER_NAME> \
   --name AMPSaaSDB \
   --dest-name AMPSaaSDB-restored \
   --time "2025-11-12T10:30:00Z"
 
 # Update connection string in Key Vault
 az keyvault secret set \
-  --vault-name kv-teamsgpt-shared \
+  --vault-name <KEY_VAULT_NAME> \
   --name "sql-connection-string-prod" \
-  --value "Server=tcp:sql-teamsgpt-prod.database.windows.net;Database=AMPSaaSDB-restored;..."
+  --value "Server=tcp:<SQL_SERVER_NAME>.database.windows.net;Database=AMPSaaSDB-restored;..."
 ```
 
 #### Failover SQL to Secondary Region (< 5 minutes)
@@ -737,9 +737,9 @@ az keyvault secret set \
 
 # Manuel trigger (if needed)
 az sql failover-group set-primary \
-  --resource-group rg-teams-gpt-prod \
-  --server sql-teamsgpt-prod \
-  --name fog-teamsgpt-prod \
+  --resource-group <RESOURCE_GROUP> \
+  --server <SQL_SERVER_NAME> \
+  --name <FAILOVER_GROUP_NAME> \
   --failover-policy Automatic
 ```
 
@@ -817,6 +817,19 @@ az sql failover-group set-primary \
 ### Scaling Strategy
 
 #### App Service Auto-scaling Rules
+
+**Stratégie** : 2-10 instances avec scaling automatique basé sur CPU et queue length
+
+**Règles principales** :
+- Scale OUT : CPU > 70% pendant 5 min (ajouter 1 instance)
+- Scale IN : CPU < 30% pendant 10 min (retirer 1 instance)
+- Burst : HttpQueueLength > 50 (ajouter 2 instances)
+
+**Peak Hours Schedule** :
+- Jours ouvrables 9h-17h EST
+- Minimum 4 instances (vs 2 en off-peak)
+
+**Exemple Bicep** :
 ```bicep
 resource autoScaleSettings 'Microsoft.Insights/autoscalesettings@2022-10-01' = {
   name: 'autoscale-bot-prod'
@@ -833,74 +846,17 @@ resource autoScaleSettings 'Microsoft.Insights/autoscalesettings@2022-10-01' = {
           default: '2'
         }
         rules: [
-          {
-            metricTrigger: {
-              metricName: 'CpuPercentage'
-              operator: 'GreaterThan'
-              threshold: 70
-              timeAggregation: 'Average'
-              timeWindow: 'PT5M'
-            }
-            scaleAction: {
-              direction: 'Increase'
-              type: 'ChangeCount'
-              value: '1'
-              cooldown: 'PT5M'
-            }
-          }
-          {
-            metricTrigger: {
-              metricName: 'CpuPercentage'
-              operator: 'LessThan'
-              threshold: 30
-              timeAggregation: 'Average'
-              timeWindow: 'PT10M'
-            }
-            scaleAction: {
-              direction: 'Decrease'
-              type: 'ChangeCount'
-              value: '1'
-              cooldown: 'PT10M'
-            }
-          }
-          {
-            metricTrigger: {
-              metricName: 'HttpQueueLength'
-              operator: 'GreaterThan'
-              threshold: 50
-              timeAggregation: 'Average'
-              timeWindow: 'PT5M'
-            }
-            scaleAction: {
-              direction: 'Increase'
-              type: 'ChangeCount'
-              value: '2'
-              cooldown: 'PT5M'
-            }
-          }
+          // CPU > 70% → +1 instance
+          // CPU < 30% → -1 instance
+          // HttpQueueLength > 50 → +2 instances
         ]
-      }
-      {
-        name: 'Peak Hours'
-        capacity: {
-          minimum: '4'
-          maximum: '10'
-          default: '4'
-        }
-        recurrence: {
-          frequency: 'Week'
-          schedule: {
-            timeZone: 'Eastern Standard Time'
-            days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
-            hours: [9]
-            minutes: [0]
-          }
-        }
       }
     ]
   }
 }
 ```
+
+> **Note** : Voir `/infra/modules/autoscale.bicep` pour l'implémentation complète
 
 ---
 
@@ -976,42 +932,36 @@ graph TB
 
 ### Séquence de déploiement (Deployment Sequence)
 
-```
-Developer    GitHub       GitHub Actions    Azure DevOps    App Service    Health Check
-    │             │               │               │              │              │
-    │─git push───▶│               │               │              │              │
-    │             │               │               │              │              │
-    │             │─webhook──────▶│               │              │              │
-    │             │               │               │              │              │
-    │             │               │─checkout code─│              │              │
-    │             │               │               │              │              │
-    │             │               │─npm ci────────│              │              │
-    │             │               │─npm test──────│              │              │
-    │             │               │─npm lint──────│              │              │
-    │             │               │─security scan─│              │              │
-    │             │               │               │              │              │
-    │             │               │─build package─│              │              │
-    │             │               │               │              │              │
-    │             │               │─login Azure───│              │              │
-    │             │               │               │              │              │
-    │             │               │─deploy staging│─────────────▶│              │
-    │             │               │               │    (slot)    │              │
-    │             │               │               │              │              │
-    │             │               │───────────────────health check──────────────▶│
-    │             │               │               │              │              │
-    │             │               │◀───────────────────200 OK────────────────────│
-    │             │               │               │              │              │
-    │             │               │─swap slots────│──────────────▶              │
-    │             │               │               │  (staging→   │              │
-    │             │               │               │  production) │              │
-    │             │               │               │              │              │
-    │             │               │───────────────────smoke test─────────────────▶│
-    │             │               │               │              │              │
-    │             │               │◀───────────────────200 OK────────────────────│
-    │             │               │               │              │              │
-    │◀────notification (Slack)────│               │              │              │
-    │   "Deployment SUCCESS"      │               │              │              │
-    │             │               │               │              │              │
+```mermaid
+sequenceDiagram
+    participant Dev as 👨‍💻 Developer
+    participant GH as GitHub
+    participant GA as GitHub Actions
+    participant AS as App Service
+    participant HC as Health Check
+    
+    Dev->>GH: git push
+    GH->>GA: webhook trigger
+    
+    GA->>GA: checkout code
+    GA->>GA: npm ci
+    GA->>GA: npm test
+    GA->>GA: npm lint
+    GA->>GA: security scan
+    GA->>GA: build package
+    
+    GA->>GA: login Azure
+    GA->>AS: deploy to staging slot
+    
+    GA->>HC: health check staging
+    HC-->>GA: 200 OK
+    
+    GA->>AS: swap slots<br/>(staging → production)
+    
+    GA->>HC: smoke test production
+    HC-->>GA: 200 OK
+    
+    GA->>Dev: Slack notification<br/>"Deployment SUCCESS ✅"
 ```
 
 ---
