@@ -1,0 +1,18 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "sqlServerName": {
+      "value": "sac-02-sql"
+    },
+    "botOutboundIpAddresses": {
+      "value": "20.85.178.20,20.85.178.53,20.85.179.160,20.85.179.200,20.85.179.239,20.85.180.190,20.119.16.27"
+    },
+    "botManagedIdentityPrincipalId": {
+      "value": "829c6f2b-1e98-403b-8304-535ea6a50c7d"
+    },
+    "botManagedIdentityName": {
+      "value": "bot997b9c"
+    }
+  }
+}

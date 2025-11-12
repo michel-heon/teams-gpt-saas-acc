@@ -114,6 +114,34 @@
 
 **Référence:** [Issue #4 - Phase 3 : Configuration Azure Marketplace et Certification](https://github.com/michel-heon/teams-gpt-saas-acc/issues/4)
 
+### 🆕 Issue #7 : Finaliser le mécanisme de souscription Marketplace → Teams
+
+**But :** garantir qu'un abonnement acheté dans Azure Marketplace devient utilisable dans Teams (liaison `Subscriptions.TeamsUserId`, distribution contrôlée du package, instructions claires).
+
+**Constats :**
+- Les webhooks Marketplace créent l'enregistrement `Subscriptions` mais la colonne `TeamsUserId` reste vide (`doc/architecture/user-journey.md:31-65`), ce qui empêche `subscriptionCheck` de retrouver l'abonnement.
+- Le manifest `appPackage/manifest.json` (onglet `Abonnement`, lignes 66-87) peut être partagé directement sans passer par le portail, contournant la procédure de liaison (`doc/phase2/configuration-saas.md:193-215`).
+- Conséquence : le bot retourne “Service Temporarily Unavailable” après achat car aucun mapping n'existe encore entre l'utilisateur Teams et l'abonnement Marketplace.
+
+**Tâches :**
+1. 🚪 **Forcer le téléchargement via le portail SaaS**
+   - Faire de la section Installation (voir `doc/reports/TODO-6-COMPLETION.md`) l'unique source du package, idéalement protégée par authentification et vérification du statut `Subscribed`.
+   - Bloquer/alerter si un utilisateur tente d'accéder au ZIP sans abonnement actif.
+2. 🔗 **Automatiser `sp_LinkTeamsUserToSubscription`**
+   - Implémenter une API ou un flux “premier lancement” qui prend `AmpSubscriptionId`, `TeamsUserId`, `TenantId`, `ConversationId` et appelle `sp_LinkTeamsUserToSubscription` (`doc/phase2/configuration-saas.md:193-215`).
+   - Journaliser la liaison et offrir un mécanisme de relance si la SP échoue.
+3. 📘 **Documenter pour les clients**
+   - Mettre à jour `doc/architecture/user-journey.md` + guide d'installation pour expliquer clairement l'étape de liaison obligatoire.
+   - Ajouter un message dans le bot quand aucun abonnement lié n'est trouvé, avec lien vers la page portail adéquate.
+4. ✅ **Tests & monitoring**
+   - Scénario E2E : achat Marketplace → activation → téléchargement portail → premier message Teams → vérification `Subscriptions.TeamsUserId`.
+   - Nouveau script diagnostique listant les abonnements `Subscribed` sans `TeamsUserId` et permettant de déclencher la liaison.
+
+**Critères de succès :**
+- 100 % des nouveaux clients voient leur abonnement lié avant leur premier message Teams.
+- Plus d'erreur “Service Temporarily Unavailable” lorsqu'un client fraîchement abonné contacte le bot depuis Teams.
+- Documentation et portail mis à jour, prêts à être partagés avec les clients Marketplace.
+
 ### 3.1 Configuration de l'offre Marketplace
 - [ ] Créer l'offre dans Partner Center
 - [ ] Remplir les métadonnées marketing

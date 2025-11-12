@@ -17,6 +17,14 @@ param webAppSKU string
 @maxLength(42)
 param botDisplayName string
 
+// SaaS Integration parameters
+param saasDbServer string
+param saasDbName string
+param saasDbUseManagedIdentity string = 'true'
+param saasEnableSubscriptionCheck string = 'false'
+param saasDebugMode string = 'true'
+param saasPermissiveMode string = 'true'
+
 param serverfarmsName string = resourceBaseName
 param webAppName string = resourceBaseName
 param identityName string = resourceBaseName
@@ -83,6 +91,34 @@ resource webApp 'Microsoft.Web/sites@2021-02-01' = {
         {
           name: 'AZURE_OPENAI_DEPLOYMENT_NAME'
           value: azureOpenAIDeploymentName
+        }
+        {
+          name: 'SAAS_DB_SERVER'
+          value: saasDbServer
+        }
+        {
+          name: 'SAAS_DB_NAME'
+          value: saasDbName
+        }
+        {
+          name: 'SAAS_DB_USE_MANAGED_IDENTITY'
+          value: saasDbUseManagedIdentity
+        }
+        {
+          name: 'SAAS_ENABLE_SUBSCRIPTION_CHECK'
+          value: saasEnableSubscriptionCheck
+        }
+        {
+          name: 'SAAS_DEBUG_MODE'
+          value: saasDebugMode
+        }
+        {
+          name: 'SAAS_PERMISSIVE_MODE'
+          value: saasPermissiveMode
+        }
+        {
+          name: 'SAAS_BLOCK_NO_SUBSCRIPTION'
+          value: 'false'
         }
       ]
       ftpsState: 'FtpsOnly'

@@ -19,6 +19,24 @@
     },
     "botDisplayName": {
       "value": "teams-gpt-saas-acc"
+    },
+    "saasDbServer": {
+      "value": "${{SAAS_DB_SERVER}}"
+    },
+    "saasDbName": {
+      "value": "${{SAAS_DB_NAME}}"
+    },
+    "saasDbUseManagedIdentity": {
+      "value": "${{SAAS_DB_USE_MANAGED_IDENTITY}}"
+    },
+    "saasEnableSubscriptionCheck": {
+      "value": "${{SAAS_ENABLE_SUBSCRIPTION_CHECK}}"
+    },
+    "saasDebugMode": {
+      "value": "${{SAAS_DEBUG_MODE}}"
+    },
+    "saasPermissiveMode": {
+      "value": "${{SAAS_PERMISSIVE_MODE}}"
     }
   }
 }
