@@ -20,3 +20,5 @@ devTools/
 
 # Distribution repository clone (public repo)
 Assistant-GPT-Teams/
+Assistant-GPT-Teams
+appPackage/*.backup

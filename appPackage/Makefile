@@ -1,7 +1,7 @@
 # Makefile pour la gestion des icônes et packages Microsoft Teams
 # Assistant GPT Teams - Cotechnoe Inc.
 
-.PHONY: help icons clean backup restore package validate info
+.PHONY: help icons clean backup restore package validate info deploy-docs
 
 # Couleurs pour l'affichage
 BLUE := \033[0;34m
@@ -21,7 +21,7 @@ help: ## Afficher cette aide
 
 icons: ## Générer les icônes Teams (color.png, outline.png)
 	@echo "$(BLUE)🎨 Génération des icônes Microsoft Teams...$(NC)"
-	@python3 generate-icons.py
+	@python3 ../scripts/generate-icons.py
 	@echo "$(GREEN)✅ Icônes générées avec succès!$(NC)"
 	@echo ""
 	@echo "$(YELLOW)📝 Prochaines étapes:$(NC)"
@@ -31,6 +31,7 @@ icons: ## Générer les icônes Teams (color.png, outline.png)
 
 package: icons ## Générer les packages Teams (.zip) avec les nouvelles icônes
 	@echo "$(BLUE)📦 Génération des packages Microsoft Teams...$(NC)"
+	@bash ../scripts/sync-version.sh
 	@rm -f build/appPackage.dev.zip build/appPackage.playground.zip
 	@mkdir -p build
 	@zip -q build/appPackage.dev.zip manifest.json color.png outline.png
@@ -134,6 +135,30 @@ info: ## Afficher les informations sur les icônes et packages
 	@echo "$(YELLOW)🔗 Référence:$(NC)"
 	@echo "  https://learn.microsoft.com/microsoftteams/platform/concepts/build-and-test/apps-package#app-icons"
 	@echo ""
+
+deploy-docs: ## Déployer la documentation et le package sur cotechnoe.com
+	@echo "$(BLUE)🚀 Déploiement sur cotechnoe.com...$(NC)"
+	@if [ ! -f build/appPackage.dev.zip ]; then \
+		echo "$(RED)❌ build/appPackage.dev.zip non trouvé. Exécuter 'make package' d'abord$(NC)"; \
+		exit 1; \
+	fi
+	@echo "$(YELLOW)📝 Conversion Markdown → HTML...$(NC)"
+	@node ../scripts/md-to-html.js distribution-snapshot build/html
+	@echo "$(YELLOW)📤 Copie des fichiers HTML...$(NC)"
+	@scp -i ~/.ssh/cotechnoe-srv.pem build/html/*.html michel@cotechnoe.com:/var/www/html/teams-gpt/
+	@echo "$(YELLOW)📤 Copie du package Teams...$(NC)"
+	@scp -i ~/.ssh/cotechnoe-srv.pem build/appPackage.dev.zip michel@cotechnoe.com:/var/www/html/teams-gpt/appPackage.zip
+	@echo "$(GREEN)✅ Déploiement terminé!$(NC)"
+	@echo ""
+	@echo "$(YELLOW)📁 Fichiers déployés:$(NC)"
+	@echo "  - INSTALLATION.html"
+	@echo "  - PRIVACY.html"
+	@echo "  - README.html"
+	@echo "  - SUPPORT.html"
+	@echo "  - TERMS.html"
+	@echo "  - appPackage.zip"
+	@echo ""
+	@echo "$(YELLOW)🔗 URL: https://www.cotechnoe.com/teams-gpt/$(NC)"
 
 # Cibles par défaut
 .DEFAULT_GOAL := help

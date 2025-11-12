@@ -85,6 +85,9 @@ async function usageTrackingMiddleware(context, next) {
       
       console.log('[UsageTracking] ✅ saasIntegration.trackMessageUsage completed');
       
+      // Note: L'émission vers Azure Marketplace API est gérée par le SaaS Accelerator Metered Scheduler
+      // qui lit les MeteredAuditLogs et envoie les événements automatiquement (voir doc/phase2/)
+      
       // Report pour les logs formatés (RGPD-compliant)
       await usageReporter.reportUsage(
         subscriptionId,

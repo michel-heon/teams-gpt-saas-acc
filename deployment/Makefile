@@ -100,6 +100,27 @@ provision-dev: ## Provision environnement dev Azure (via Toolkit)
 	@cd .. && npx atk provision --env dev
 	@echo "$(GREEN)✓ Package créé : appPackage/build/appPackage.dev.zip$(NC)"
 
+##@ Package (Génération rapide sans provision complète)
+
+package-playground: ## Générer uniquement le package playground (sans provision)
+	@echo "$(BLUE)Génération du package playground...$(NC)"
+	@cd .. && atk package --env playground
+	@echo "$(GREEN)✓ Package généré : appPackage/build/appPackage.playground.zip$(NC)"
+
+package-local: ## Générer uniquement le package local (sans provision)
+	@echo "$(BLUE)Génération du package local...$(NC)"
+	@cd .. && atk package --env local
+	@echo "$(GREEN)✓ Package généré : appPackage/build/appPackage.local.zip$(NC)"
+
+package-dev: ## Générer uniquement le package dev (sans provision)
+	@echo "$(BLUE)Génération du package dev...$(NC)"
+	@cd .. && atk package --env dev
+	@echo "$(GREEN)✓ Package généré : appPackage/build/appPackage.dev.zip$(NC)"
+	@echo "$(BLUE)Copie vers distribution-snapshot...$(NC)"
+	@mkdir -p ../appPackage/distribution-snapshot
+	@cp ../appPackage/build/appPackage.dev.zip ../appPackage/distribution-snapshot/appPackage.zip
+	@echo "$(GREEN)✓ Package copié : appPackage/distribution-snapshot/appPackage.zip$(NC)"
+
 ##@ Deploy (Déploiement du code)
 
 deploy-playground: ## Deploy code vers environnement playground (via Toolkit)

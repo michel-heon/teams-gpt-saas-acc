@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
 Générateur d'icônes Microsoft Teams pour Assistant GPT Teams
-Conforme aux spécifications officielles Microsoft :
-- Color icon: 256x256 pixels (recommandé 216-350, optimal 256)
+Conforme aux spécifications officielles Microsoft Teams 2024 :
+- Color icon: 192x192 pixels (requis depuis 2024)
 - Outline icon: 32x32 pixels, blanc pur RGB(255,255,255), fond transparent
 """
 
@@ -19,14 +19,15 @@ def hex_to_rgb(hex_color):
     hex_color = hex_color.lstrip('#')
     return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
 
-def create_color_icon(output_path="color.png"):
+def create_color_icon(output_path="../appPackage/color.png"):
     """
-    Crée l'icône couleur 256x256 pixels
+    Crée l'icône couleur 192x192 pixels
     Design : Symbole GPT stylisé avec gradient
+    Conforme spécifications Microsoft Teams 2024
     """
-    size = 256
-    symbol_size = 160  # Proportionnel (256 * 0.625)
-    padding = 48  # Proportionnel (256 * 0.1875)
+    size = 192
+    symbol_size = 120  # Proportionnel (192 * 0.625)
+    padding = 36  # Proportionnel (192 * 0.1875)
     
     # Créer image avec fond transparent
     img = Image.new('RGBA', (size, size), (255, 255, 255, 0))
@@ -121,7 +122,7 @@ def create_color_icon(output_path="color.png"):
     print(f"✅ Color icon créée: {output_path} (256x256 pixels)")
     return output_path
 
-def create_outline_icon(output_path="outline.png"):
+def create_outline_icon(output_path="../appPackage/outline.png"):
     """
     Crée l'icône outline 32x32 pixels
     Design : Symbole moderne "GPT-4.1" blanc pur sur fond transparent
@@ -194,11 +195,12 @@ def create_outline_icon(output_path="outline.png"):
 def backup_existing_icons():
     """Sauvegarder les icônes existantes"""
     script_dir = os.path.dirname(os.path.abspath(__file__))
+    appPackage_dir = os.path.join(script_dir, '..', 'appPackage')
     
     for icon in ['color.png', 'outline.png']:
-        icon_path = os.path.join(script_dir, icon)
+        icon_path = os.path.join(appPackage_dir, icon)
         if os.path.exists(icon_path):
-            backup_path = os.path.join(script_dir, f"{icon}.backup")
+            backup_path = os.path.join(appPackage_dir, f"{icon}.backup")
             os.rename(icon_path, backup_path)
             print(f"📦 Backup: {icon} → {icon}.backup")
 
@@ -220,12 +222,13 @@ def main():
     print("  - Outline: 32x32 px, blanc pur RGB(255,255,255), transparent")
     print()
     
-    color_path = create_color_icon("color.png")
-    outline_path = create_outline_icon("outline.png")
+    color_path = create_color_icon()
+    outline_path = create_outline_icon()
     
     print("\n" + "=" * 70)
     print("✅ Icônes générées avec succès!")
-    print(f"📁 Répertoire: {script_dir}")
+    appPackage_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'appPackage')
+    print(f"📁 Répertoire: {appPackage_dir}")
     print("\n⚠️  IMPORTANT:")
     print("  1. Vérifier visuellement les icônes générées")
     print("  2. Tester dans Teams (apparence dans différents contextes)")
