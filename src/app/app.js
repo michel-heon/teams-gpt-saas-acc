@@ -103,9 +103,16 @@ app.on('message', async ({ send, stream, activity }) => {
   
   // Execute middleware chain: subscriptionCheck -> usageTracking -> messageHandler
   try {
-    await subscriptionCheckMiddleware(context, async () => {
+    // Court-circuiter le subscriptionCheck si désactivé (évite l'init DB)
+    if (config.saas.enableSubscriptionCheck) {
+      await subscriptionCheckMiddleware(context, async () => {
+        await usageTrackingMiddleware(context, messageHandler);
+      });
+    } else {
+      // Bypass subscription check - appeler directement usageTracking
+      context.subscription = null; // Pas d'abonnement vérifié
       await usageTrackingMiddleware(context, messageHandler);
-    });
+    }
   } catch (error) {
     console.error('[Middleware] Unexpected error in middleware chain:', error);
     await send(
