@@ -1,28 +1,115 @@
 # Architecture Infrastructure Azure - DevOps & CI/CD
 
-**Version** : 1.0  
+**Version** : 1.1 - CORRECTION (Architecture réelle vs idéale)  
 **Date** : 12 novembre 2025  
 **Auteur** : Architecture Team  
 **Projet** : Teams GPT SaaS Accelerator
+
+> ⚠️ **IMPORTANT** : Ce document décrit l'architecture **CIBLE** (à implémenter). L'infrastructure **ACTUELLE** (selon `/infra/azure.bicep`) est beaucoup plus simple.
 
 ---
 
 ## 📋 Table des matières
 
-1. [Vue d'ensemble](#vue-densemble)
-2. [Architecture globale](#architecture-globale)
-3. [Composants Azure](#composants-azure)
-4. [Pipeline CI/CD](#pipeline-cicd)
-5. [Environnements](#environnements)
-6. [Réseau & Sécurité](#réseau--sécurité)
-7. [Monitoring & Observabilité](#monitoring--observabilité)
-8. [Disaster Recovery](#disaster-recovery)
+1. [État actuel vs Cible](#état-actuel-vs-cible)
+2. [Vue d'ensemble](#vue-densemble)
+3. [Architecture actuelle (RÉALITÉ)](#architecture-actuelle-réalité)
+4. [Architecture cible (OBJECTIF)](#architecture-cible-objectif)
+5. [Pipeline CI/CD](#pipeline-cicd)
+6. [Plan de migration](#plan-de-migration)
+7. [Réseau & Sécurité](#réseau--sécurité)
+8. [Monitoring & Observabilité](#monitoring--observabilité)
 9. [Coûts & Dimensionnement](#coûts--dimensionnement)
 10. [Diagrammes techniques](#diagrammes-techniques)
 
 ---
 
-## 🎯 Vue d'ensemble
+## 📊 État actuel vs Cible
+
+### Infrastructure ACTUELLE (selon `/infra/azure.bicep`)
+
+**Ce qui existe RÉELLEMENT** :
+
+```
+✅ App Service Plan (1 instance, SKU configuré par paramètre)
+✅ App Service / Web App (Node.js 20, HTTPS only)
+✅ User-Assigned Managed Identity
+✅ Bot Service (Azure Bot Framework)
+✅ Teams Channel connection
+```
+
+**Ce qui N'EXISTE PAS** :
+```
+❌ Aucune Azure SQL Database
+❌ Aucun Key Vault
+❌ Aucun Container Registry
+❌ Aucun Application Insights
+❌ Aucun Log Analytics Workspace
+❌ Aucun resource group multiples (shared/dev/prod)
+❌ Aucun staging slot configuré
+❌ Aucun auto-scaling
+```
+
+### Architecture CIBLE (Objectif du document)
+
+Le reste du document décrit l'architecture **à implémenter** pour atteindre le niveau production enterprise.
+
+---
+
+## �️ Architecture actuelle (RÉALITÉ)
+
+### Diagramme infrastructure réelle
+
+```mermaid
+graph TB
+    GitHub["GitHub Repository<br/>michel-heon/teams-gpt-saas-acc"]
+    
+    subgraph Azure["Azure Resource Group"]
+        AppPlan["App Service Plan<br/>SKU: Variable (param)"]
+        WebApp["Web App / Bot<br/>Node.js 20<br/>HTTPS only"]
+        Identity["User-Assigned<br/>Managed Identity"]
+        BotService["Bot Service<br/>SKU: F0 (Free)"]
+    end
+    
+    OpenAI["Azure OpenAI<br/>(External - secrets in params)"]
+    Teams["Microsoft Teams"]
+    
+    GitHub -->|Manual deploy| WebApp
+    WebApp --> AppPlan
+    WebApp --> Identity
+    WebApp --> OpenAI
+    BotService --> WebApp
+    Teams --> BotService
+```
+
+### Ressources déployées par `azure.bicep`
+
+**Paramètres requis** :
+- `resourceBaseName` : Nom de base pour toutes les ressources
+- `azureOpenAIKey` : Clé API OpenAI (passée en secret)
+- `azureOpenAIEndpoint` : URL endpoint OpenAI
+- `azureOpenAIDeploymentName` : Nom du déploiement GPT
+- `webAppSKU` : SKU du App Service Plan
+- `botDisplayName` : Nom affiché du bot
+
+**App Service Configuration** :
+- Runtime : Node.js 20
+- Mode : Run from package (`WEBSITE_RUN_FROM_PACKAGE=1`)
+- Auth : User-Assigned MSI (pas de secrets stockés)
+- Environnement : `RUNNING_ON_AZURE=1`
+- OpenAI : Credentials passés via app settings (⚠️ pas dans Key Vault)
+
+**Sécurité actuelle** :
+- ✅ HTTPS only
+- ✅ FtpsOnly (no plain FTP)
+- ✅ Managed Identity pour le bot
+- ⚠️ Secrets OpenAI dans app settings (visible dans portal)
+- ❌ Pas de network isolation
+- ❌ Pas de backup configuré
+
+---
+
+## 🎯 Architecture cible (OBJECTIF)
 
 ### Objectifs de l'architecture
 
@@ -43,11 +130,7 @@ Cette architecture DevOps vise à fournir :
 4. **Observability First** : Logs, metrics, traces pour chaque composant
 5. **Cost Optimization** : Auto-shutdown, reserved instances, right-sizing
 
----
-
-## 🏗️ Architecture globale
-
-### Diagramme de haut niveau
+### Diagramme architecture cible (à implémenter)
 
 ```mermaid
 graph TB
@@ -65,28 +148,26 @@ graph TB
     end
 
     subgraph Azure["Azure Subscription"]
-        subgraph Shared["rg-teams-gpt-shared"]
+        subgraph Shared["rg-teams-gpt-shared (À CRÉER)"]
             KeyVault["Key Vault"]
             ACR["Container Registry"]
             LogAnalytics["Log Analytics"]
         end
 
-        subgraph Dev["rg-teams-gpt-dev"]
+        subgraph Dev["rg-teams-gpt-dev (À CRÉER)"]
             AppDev["App Service<br/>+ Staging Slot"]
-            SQLDev["SQL Database"]
             AIDev["App Insights"]
         end
 
-        subgraph Prod["rg-teams-gpt-prod"]
+        subgraph Prod["rg-teams-gpt-prod (À CRÉER)"]
             AppProd["App Service<br/>+ Staging Slot"]
-            SQLProd["SQL Database<br/>+ Geo-replication"]
             AIProd["App Insights"]
         end
 
-        subgraph SaaS["rg-saas-accelerator"]
+        subgraph SaaS["Commercial Marketplace SaaS (EXISTANT)"]
+            SQLDB["Azure SQL Database<br/>AMPSaaSDB"]
             Portal["Portal App"]
             Admin["Admin App"]
-            Scheduler["Scheduler"]
         end
     end
 
@@ -98,11 +179,11 @@ graph TB
     Deploy --> AppDev
     Deploy --> AppProd
     
-    AppDev -.-> SQLDev
+    AppDev -.-> SQLDB
     AppDev -.-> KeyVault
     AppDev -.-> AIDev
     
-    AppProd -.-> SQLProd
+    AppProd -.-> SQLDB
     AppProd -.-> KeyVault
     AppProd -.-> AIProd
     
@@ -110,9 +191,11 @@ graph TB
     AIProd --> LogAnalytics
 ```
 
+> **Note** : La base de données SQL existe DÉJÀ dans le Commercial Marketplace SaaS Accelerator. Les bots Dev/Prod se connecteront à cette DB partagée.
+
 ---
 
-## 🧩 Composants Azure
+## 🧩 Composants Azure (CIBLE)
 
 ### 1. **Resource Groups**
 
@@ -142,7 +225,7 @@ graph TB
   - Daily cap : 5 GB
   - Linked services : App Insights, App Services
 
-#### rg-teams-gpt-dev (Développement)
+#### rg-teams-gpt-dev (Développement - À CRÉER)
 
 **Région** : Canada Central
 
@@ -159,15 +242,9 @@ graph TB
   - Always On : Activé
   - Health check : `/health`
   - Deployment slots : `production` (actif), `staging` (pour blue/green)
-  - Managed Identity : System-assigned
-  - Application Settings : Références Key Vault pour secrets (bot credentials, connection strings)
-
-- **Azure SQL Database**
-  - Tier : Standard S0 (10 DTU)
-  - Backup : Point-in-time restore 7 jours
-  - Geo-replication : Non
-  - Firewall : Azure services + CI/CD runner IP
-  - Connection pooling : Activé (max 100)
+  - Managed Identity : User-Assigned (pour accès Key Vault + SQL)
+  - Application Settings : Références Key Vault pour secrets (bot credentials, OpenAI keys)
+  - Connection strings : Référence à AMPSaaSDB (Commercial Marketplace)
 
 - **Application Insights**
   - Type : Node.js
@@ -175,7 +252,9 @@ graph TB
   - Retention : 30 jours
   - Alertes : Response time, Error rate, Dependency failures
 
-#### rg-teams-gpt-prod (Production)
+> **Note** : Pas de SQL Database dans ce RG. Le bot utilisera la base `AMPSaaSDB` du Commercial Marketplace SaaS Accelerator.
+
+#### rg-teams-gpt-prod (Production - À CRÉER)
 
 **Région** : Canada Central  
 **Backup Region** : Canada East
@@ -192,12 +271,10 @@ graph TB
   - Traffic routing : 100% production (swap après validation staging)
   - HTTPS only : Activé, TLS 1.2 minimum
   - CORS : teams.microsoft.com uniquement
+  - Managed Identity : User-Assigned (pour accès Key Vault + SQL)
+  - Connection strings : Référence à AMPSaaSDB (Commercial Marketplace)
 
-- **Azure SQL Database**
-  - Tier : Standard S1 (20 DTU)
-  - Active geo-replication : Canada East
-  - Backup : Point-in-time restore 35 jours
-  - Advanced Threat Protection : Activé
+> **Note** : Pas de SQL Database dans ce RG. Le bot utilisera la base `AMPSaaSDB` du Commercial Marketplace SaaS Accelerator (déjà geo-répliquée).
   - Auditing : Activé → Log Analytics
 
 - **Application Insights**
@@ -207,11 +284,65 @@ graph TB
 
 #### rg-saas-accelerator (SaaS Marketplace)
 
-**Note** : Existant, géré séparément
+**Note** : Existant, géré séparément. Contient la base de données `AMPSaaSDB` que les bots utiliseront.
 
 ---
 
-## 🔄 Pipeline CI/CD
+## � Plan de migration (Actuel → Cible)
+
+### Phase 1 : Séparation des environnements (Semaine 1-2)
+
+**Actions** :
+1. Créer 3 resource groups : `rg-teams-gpt-shared`, `rg-teams-gpt-dev`, `rg-teams-gpt-prod`
+2. Créer Key Vault dans `shared` et migrer secrets OpenAI
+3. Créer Application Insights dans `dev` et `prod`
+4. Configurer Log Analytics Workspace dans `shared`
+
+**Résultat** : Infrastructure de base pour 3 environnements
+
+### Phase 2 : CI/CD automatisé (Semaine 3-4)
+
+**Actions** :
+1. Créer workflow GitHub Actions `.github/workflows/ci-cd.yml`
+2. Configurer secrets GitHub (`AZURE_CREDENTIALS_DEV`, `AZURE_CREDENTIALS_PROD`)
+3. Implémenter déploiement automatique vers `dev` (push main)
+4. Implémenter déploiement manuel vers `prod` (tag v*)
+
+**Résultat** : Déploiements automatisés sans intervention manuelle
+
+### Phase 3 : Blue/Green deployment (Semaine 5-6)
+
+**Actions** :
+1. Configurer staging slots sur App Service `dev` et `prod`
+2. Modifier pipeline pour déployer sur staging
+3. Implémenter health checks automatiques
+4. Implémenter slot swap après validation
+
+**Résultat** : Zero-downtime deployments
+
+### Phase 4 : Monitoring & Alertes (Semaine 7-8)
+
+**Actions** :
+1. Instrumenter Application Insights dans code bot
+2. Créer dashboards Azure (opérationnel + business)
+3. Configurer alertes (availability, performance, errors)
+4. Intégrer Slack notifications
+
+**Résultat** : Visibilité complète sur santé de l'application
+
+### Phase 5 : Production-ready (Semaine 9-10)
+
+**Actions** :
+1. Activer auto-scaling production (2-10 instances)
+2. Configurer geo-replication SQL (si nécessaire)
+3. Documenter runbooks (incidents, rollback, DR)
+4. Tester disaster recovery
+
+**Résultat** : Infrastructure enterprise-grade
+
+---
+
+## �🔄 Pipeline CI/CD (CIBLE)
 
 ### Architecture du Pipeline
 
