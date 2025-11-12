@@ -100,13 +100,14 @@ az ad app credential reset \
 
 ```json
 {
-  "appId": "d3b2710f-1be9-4f89-8834-6273619bd838",
-  "password": "XNi8Q~OpiQPQbPTxEa6dIP2GYjcJ9RsA3ql4Bcyu",  ← CLIENT_SECRET
-  "tenant": "aba0984a-85a2-4fd4-9ae5-0a45d7efc9d2"
+  "appId": "<YOUR_CLIENT_ID>",
+  "password": "<YOUR_CLIENT_SECRET>",  ← CLIENT_SECRET
+  "tenant": "<YOUR_TENANT_ID>"
 }
 ```
 
 ⚠️ **Copier immédiatement le `password`** → Ce sera votre **CLIENT_SECRET**.
+⚠️ **SÉCURITÉ:** Ne JAMAIS commiter ces credentials dans Git. Stocker dans `env/.env.dev` (gitignored).
 
 **Options:**
 - `--append`: Ajoute un nouveau secret sans supprimer les existants (n'affecte pas le SaaS Accelerator)
